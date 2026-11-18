@@ -1,0 +1,27 @@
+classDiagram
+  class Idoso { Long id; String nome; String telefone; TipoAparelho aparelho; boolean semLeitura }
+  class Familiar { Long id; String nome; String telefone; String email }
+  class Voluntario { Long id; String nome; StatusVoluntario status }
+  class Guia { Integer id; String nome; String aplicativo; StatusGuia status }
+  class Passo { Long id; Integer idGuia; Integer ordem; String instrucao }
+  class RedeApoio { Long idIdoso; Long idFamiliar; Integer ordemContato; boolean autorizado }
+  class Tarefa { Long id; Long idIdoso; Integer idGuia; TipoModoTarefa modo; StatusTarefa status }
+  class Atendimento { Long id; Long idIdoso; StatusAtendimento status; Integer tentativas }
+  class AlertaGolpe { Long id; Long idIdoso; TipoRiscoAlerta risco; TipoConteudoAlerta conteudo }
+  class Consentimento { Long id; Long idIdoso; TipoConsentimento tipo; StatusConsentimento status }
+  class Lembrete { Long id; Long idIdoso; TipoLembrete tipo; StatusLembrete status }
+  Idoso "1" -- "0..*" RedeApoio
+  Familiar "1" -- "0..*" RedeApoio
+  Guia "1" -- "0..*" Passo
+  Idoso "1" -- "0..*" Tarefa
+  Guia "0..1" -- "0..*" Tarefa
+  Idoso "1" -- "0..*" Atendimento
+  Tarefa "0..1" -- "0..*" Atendimento
+  Passo "0..1" -- "0..*" Atendimento
+  Familiar "0..1" -- "0..*" Atendimento
+  Voluntario "0..1" -- "0..*" Atendimento
+  Idoso "1" -- "0..*" AlertaGolpe
+  Idoso "1" -- "0..*" Consentimento
+  Familiar "0..1" -- "0..*" Consentimento
+  Idoso "1" -- "0..*" Lembrete
+  Familiar "0..1" -- "0..*" Lembrete

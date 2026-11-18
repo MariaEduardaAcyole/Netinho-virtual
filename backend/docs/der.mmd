@@ -1,0 +1,16 @@
+erDiagram
+  IDOSO ||--o{ REDE_APOIO : tem
+  FAMILIAR ||--o{ REDE_APOIO : apoia
+  GUIA ||--o{ PASSO : possui
+  IDOSO ||--o{ TAREFA : pede
+  GUIA o|--o{ TAREFA : orienta
+  IDOSO ||--o{ ATENDIMENTO : solicita
+  TAREFA o|--o{ ATENDIMENTO : referencia
+  PASSO o|--o{ ATENDIMENTO : onde_travou
+  FAMILIAR o|--o{ ATENDIMENTO : atende
+  VOLUNTARIO o|--o{ ATENDIMENTO : atende
+  IDOSO ||--o{ ALERTA_GOLPE : protegido
+  IDOSO ||--o{ CONSENTIMENTO : concede
+  FAMILIAR o|--o{ CONSENTIMENTO : registra
+  IDOSO ||--o{ LEMBRETE : recebe
+  FAMILIAR o|--o{ LEMBRETE : cria
