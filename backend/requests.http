@@ -1,0 +1,48 @@
+### Exemplos de chamadas locais; use com a API em execucao e dados do schema carregados.
+### Listar idosos
+GET http://localhost:8080/idosos
+
+### Criar idoso
+POST http://localhost:8080/idosos
+Content-Type: application/json
+
+{"nome":"Pessoa Sintetica","telefone":"11900000000","aparelho":"ANDROID","nomeAssistente":"Netinho","voz":"FEMININA","jeitoFalar":"CALMA","semLeitura":false,"aceitaVoluntario":true,"dataCadastro":"2026-11-17T10:00:00"}
+
+### Criar tarefa
+POST http://localhost:8080/tarefas
+Content-Type: application/json
+
+{"idIdoso":1,"pedido":"manda mensagem pro Rafael dizendo que chego as 3"}
+
+### Confirmar tarefa
+PUT http://localhost:8080/tarefas/100/confirmar
+Content-Type: application/json
+
+{"resposta":"SIM"}
+
+### Verificar golpe
+POST http://localhost:8080/golpes/verificar
+Content-Type: application/json
+
+{"idIdoso":1,"texto":"Mae, troquei de numero. Me manda um Pix de R$ 800 agora, e urgente","imagem":false}
+
+### Notificacao automatica
+POST http://localhost:8080/golpes/notificacao-recebida
+Content-Type: application/json
+
+{"idIdoso":1,"texto":"Seu INSS esta bloqueado clique http://exemplo.test","imagem":false}
+
+### Criar atendimento
+POST http://localhost:8080/atendimentos
+Content-Type: application/json
+
+{"idIdoso":1,"idTarefa":2,"idPasso":3,"tentativas":1}
+
+### Relatorio de horas
+GET http://localhost:8080/voluntarios/1/relatorio-horas
+
+### Emergencia
+POST http://localhost:8080/emergencias
+Content-Type: application/json
+
+{"idIdoso":1}
