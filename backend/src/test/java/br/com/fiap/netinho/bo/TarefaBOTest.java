@@ -63,7 +63,9 @@ class TarefaBOTest {
         redeDaMaria();
         for(String pedido:List.of("Manda mensagem pro Rafael dizendo que chego as 3",
                 "Manda mensagem para o Rafael dizendo oi","Manda uma mensagem pra minha neta dizendo oi",
-                "Avisa pro meu filho que cheguei","manda mensagem pra beatriz")){
+                "Avisa pro meu filho que cheguei","manda mensagem pra beatriz",
+                "manda mensagem Rafael chego as 3","Fala com a Beatriz que estou bem","Avisa o Rafael que cheguei",
+                "Manda mensagem para casa do Rafael")){
             Tarefa t=bo().criar(1L,pedido);
             assertEquals(StatusTarefa.AGUARDANDO,t.getStatus(),pedido);
         }

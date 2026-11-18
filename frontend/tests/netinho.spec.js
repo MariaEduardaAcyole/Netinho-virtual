@@ -134,6 +134,20 @@ test("Faz pra mim: contato desconhecido mostra aviso e deixa escolher o contato"
   expect(chamadas.filter((c) => c.caminho === "/tarefas").length).toBe(2);
 });
 
+test("Faz pra mim: entende o contato sem pra/para e mostra a prévia certa", async ({ page }) => {
+  await simularApi(page);
+  await entrar(page);
+  await page.getByRole("button", { name: "Faz pra mim" }).click();
+  await page.getByLabel("Pode escrever ou falar").fill("Avisa o meu filho que cheguei bem");
+  await expect(page.locator("[data-preview-contact]")).toHaveText("Rafael");
+  await expect(page.locator("[data-preview-message]")).toHaveText("Cheguei bem");
+  await expect(page.getByRole("button", { name: /Rafael/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByRole("heading", { name: "Mando para Rafael?" })).toBeVisible();
+  await page.getByRole("button", { name: "Sim" }).click();
+  await expect(page.getByRole("heading", { name: "Pronto! Rafael já recebeu." })).toBeVisible();
+});
+
 test("Me ensina: só guias ativos, passo a passo até concluir", async ({ page }) => {
   const chamadas = await simularApi(page);
   await entrar(page);

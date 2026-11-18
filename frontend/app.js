@@ -635,11 +635,30 @@ function renderHome() {
     </section>`;
 }
 
+function avatarInner(draft) {
+  if (draft.photo) return `<img src="${escapeHtml(draft.photo)}" alt="">`;
+  return escapeHtml((draft.contact || "?")[0].toUpperCase());
+}
+
+// Atualiza a prévia e os botões de contato enquanto a pessoa digita, sem redesenhar a tela.
+function updateMakePreview() {
+  const draft = parseDraft(state.taskText);
+  const message = app.querySelector("[data-preview-message]");
+  const who = app.querySelector("[data-preview-contact]");
+  const avatar = app.querySelector("[data-preview-avatar]");
+  if (message) message.textContent = draft.content || "Sua mensagem vai aparecer aqui.";
+  if (who) who.textContent = draft.contact || "Para quem?";
+  if (avatar) avatar.innerHTML = avatarInner(draft);
+  app.querySelectorAll(".contact-chip").forEach((chip) => {
+    chip.setAttribute("aria-pressed", String(draft.known && chip.dataset.name === draft.contact));
+  });
+}
+
 function phonePreview() {
   const screen = state.screen;
-  const draft = state.draft || { contact: "Rafael", content: "" };
-  const contact = screen === "make" ? "Rafael" : draft.contact;
-  const content = screen === "make" ? (state.taskText || "Sua mensagem vai aparecer aqui.") : draft.content;
+  const draft = screen === "make" ? parseDraft(state.taskText) : (state.draft || parseDraft(""));
+  const contact = draft.contact || "Para quem?";
+  const content = draft.content || "Sua mensagem vai aparecer aqui.";
   const notes = {
     make: "Prévia ilustrativa; ainda não mexi no seu celular.",
     confirm: 'Vou tocar em "Enviar" só depois da sua confirmação.',
@@ -649,12 +668,12 @@ function phonePreview() {
     <div class="preview">
       <div class="phone" aria-label="Prévia ilustrativa de uma conversa no celular">
         <div class="phone-head">
-          <span class="phone-initial" aria-hidden="true">${escapeHtml((contact[0] || "R").toUpperCase())}</span>
-          <span class="phone-who"><strong>${escapeHtml(contact)}</strong><span>Mensagens</span></span>
+          <span class="phone-initial" aria-hidden="true" data-preview-avatar>${avatarInner(draft)}</span>
+          <span class="phone-who"><strong data-preview-contact>${escapeHtml(contact)}</strong><span>Mensagens</span></span>
           <span class="demo-tag">Demonstração</span>
         </div>
         <div class="chat">
-          <div class="bubble in">Oi, mãe! Tudo bem?</div>
+          <div class="bubble in">Oi! Tudo bem por aí?</div>
           <div class="bubble out${screen === "sent" ? " sent" : ""}"><span data-preview-message>${escapeHtml(content)}</span>
             ${screen === "sent" ? `<span class="bubble-status">${icon("check", 3)}Enviado</span>` : ""}
           </div>
@@ -671,17 +690,31 @@ function phonePreview() {
 function contactPicker() {
   const contacts = state.supportContacts || [];
   if (!contacts.length) return "";
-  return `<div class="contact-picker" aria-label="Para quem?">
+  const current = parseDraft(state.taskText);
+  return `<div class="contact-picker" role="group" aria-label="Para quem?">
       <span class="label">Para quem?</span>
-      <div class="contact-chips">${contacts.map((c) => `<button type="button" class="contact-chip" data-action="pick-contact" data-name="${escapeHtml(firstName(c.nome))}">${escapeHtml(firstName(c.nome))} <small>${escapeHtml(c.parentesco)}</small></button>`).join("")}</div>
+      <div class="contact-chips">${contacts.map((c) => {
+        const name = firstName(c.nome);
+        const pressed = current.known && current.contact === name;
+        const face = c.photo ? `<img src="${escapeHtml(c.photo)}" alt="">` : `<span class="chip-initial">${escapeHtml(name[0] || "?")}</span>`;
+        return `<button type="button" class="contact-chip" data-action="pick-contact" data-name="${escapeHtml(name)}" aria-pressed="${pressed}">${face}<span>${escapeHtml(name)} <small>${escapeHtml(c.parentesco)}</small></span></button>`;
+      }).join("")}</div>
     </div>`;
 }
 
 function pickContact(name) {
   const field = app.querySelector("#task-text");
   const current = (field ? field.value : state.taskText || "").trim();
-  const replaced = current.replace(/((?:para|pra|pro)\s+(?:(?:o|a|meu|minha|seu|sua)\s+)*)[A-Za-zÀ-ÿ]+/i, `$1${name}`);
-  state.taskText = current && replaced !== current ? replaced : `Manda mensagem pro ${name} dizendo `;
+  const parsed = parseDraft(current);
+  if (parsed.known && parsed.word) {
+    // Já tinha um contato na frase ("fala com a Beatriz..."): troca só o nome.
+    state.taskText = current.replace(new RegExp(`(^|[^A-Za-zÀ-ÿ])(?:(?:o|a|meu|minha|seu|sua)\\s+)*${parsed.word}(?![A-Za-zÀ-ÿ])`, "i"), `$1${name}`);
+  } else if (CONTACT_WORD.test(current)) {
+    // Troca só o destinatário e mantém o resto do que a pessoa escreveu.
+    state.taskText = current.replace(/\b(para|pra|pro)\s+(?:(?:o|a|meu|minha|seu|sua)\s+)*[A-Za-zÀ-ÿ]+/i, `$1 ${name}`);
+  } else {
+    state.taskText = `Manda mensagem pro ${name} dizendo ${current}`.trimEnd() + (current ? "" : " ");
+  }
   state.taskError = "";
   render();
   const next = app.querySelector("#task-text");
@@ -716,7 +749,7 @@ function renderMake() {
 function renderConfirm() {
   return `
     <section class="screen">
-      <h1 class="title">Mando para ${escapeHtml(state.draft.contact)}?</h1>
+      <h1 class="title">Mando para ${escapeHtml(state.draft.contact || "seu contato")}?</h1>
       ${phonePreview()}
       <div class="card confirm-card push-bottom">
         <p class="ask">Posso enviar?</p>
@@ -740,7 +773,7 @@ function undoButtonInner() {
 function renderSent() {
   return `
     <section class="screen">
-      <h1 class="title">Pronto! O ${escapeHtml(state.draft.contact)} já recebeu.</h1>
+      <h1 class="title">Pronto! ${escapeHtml(state.draft.contact || "Seu contato")} já recebeu.</h1>
       ${phonePreview()}
       <div class="card push-bottom">
         <button class="btn btn-outline" data-action="undo" ${state.undoLeft === 0 ? "disabled" : ""}>${undoButtonInner()}</button>
@@ -1172,12 +1205,56 @@ function clearScamImage() {
   state.scamFile = null;
 }
 
+const CONTACT_WORD = /(?:para|pra|pro)\s+(?:(?:o|a|meu|minha|seu|sua)\s+)*([A-Za-zÀ-ÿ]+)/i;
+
+function normalizeText(value) {
+  return String(value || "").normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase().trim();
+}
+
+// Acha o contato da rede de apoio pelo nome ("Rafael") ou pelo parentesco ("minha neta").
+function findContact(word) {
+  const target = normalizeText(word);
+  if (target.length < 2) return null;
+  return (state.supportContacts || []).find((c) =>
+    normalizeText(c.nome).split(/\s+/).includes(target) || normalizeText(c.parentesco) === target) || null;
+}
+
+// Separa o pedido em contato e mensagem: "Avisa pro meu filho que cheguei" -> Rafael / "Cheguei".
 function parseDraft(text) {
-  const contactMatch = text.match(/(?:para|pra|pro)\s+(?:(?:o|a|meu|minha|seu|sua)\s+)*([A-Za-zÀ-ÿ]+)/i);
-  const contentMatch = text.match(/(?:dizendo|falando)\s+(?:que\s+)?(.+)$/i);
+  const raw = String(text || "").trim();
+  let contactMatch = raw.match(CONTACT_WORD);
+  let word = contactMatch ? contactMatch[1] : "";
+  let found = findContact(word);
+  if (!found) {
+    // Sem "pra/para/pro": procura o nome ou o parentesco em qualquer parte da frase.
+    const re = /[A-Za-zÀ-ÿ]+/g;
+    let m;
+    while ((m = re.exec(raw))) {
+      const hit = findContact(m[0]);
+      if (hit) {
+        found = hit;
+        word = m[0];
+        contactMatch = { index: m.index, 0: m[0] };
+        break;
+      }
+    }
+  }
+  let content = "";
+  const said = raw.match(/(?:dizendo|falando|perguntando|avisando)\s+(?:que\s+)?(.+)$/i);
+  if (said) content = said[1];
+  else if (contactMatch) {
+    const after = raw.slice(contactMatch.index + contactMatch[0].length).replace(/^\s*(?:[:,-]\s*|que\s+)/i, "");
+    content = after.trim();
+  }
+  if (!content) content = contactMatch ? "" : raw;
+  content = content.trim();
+  if (content) content = content[0].toUpperCase() + content.slice(1);
   return {
-    contact: contactMatch ? contactMatch[1] : "seu contato",
-    content: contentMatch ? contentMatch[1].trim() : text.trim(),
+    contact: found ? firstName(found.nome) : word ? word[0].toUpperCase() + word.slice(1) : "",
+    photo: found?.photo || "",
+    known: Boolean(found),
+    word,
+    content,
   };
 }
 
@@ -1531,8 +1608,7 @@ app.addEventListener("submit", async (event) => {
 app.addEventListener("input", (event) => {
   if (event.target.id === "task-text") {
     state.taskText = event.target.value;
-    const preview = app.querySelector("[data-preview-message]");
-    if (preview) preview.textContent = state.taskText || "Sua mensagem vai aparecer aqui.";
+    updateMakePreview();
   }
   if (event.target.id === "scam-text") state.scamText = event.target.value;
 });

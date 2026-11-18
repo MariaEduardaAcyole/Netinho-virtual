@@ -527,6 +527,18 @@ textarea.field.orange:focus { border-color: var(--orange); }
   font-weight: 800;
   cursor: pointer;
 }
+.contact-chip { display: inline-flex; align-items: center; gap: 10px; padding-left: 8px; }
+.contact-chip img, .chip-initial {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+.chip-initial { display: grid; place-items: center; background: #ffffff; color: var(--blue); }
+.contact-chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #ffffff; }
+.contact-chip[aria-pressed="true"] small { color: #dfe6ff; }
+.phone-initial img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .contact-chip small { font-size: 14px; font-weight: 600; color: #55596b; }
 .contact-chip:hover { background: #d3defc; }
 .contact-chip:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }

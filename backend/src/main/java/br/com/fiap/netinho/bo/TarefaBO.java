@@ -50,15 +50,24 @@ public class TarefaBO {
 
         String nome=extrairContato(pedido);
         List<Familiar> todos=new ArrayList<>();
+        List<RedeApoio> redes=new ArrayList<>();
         List<Familiar> opcoes=new ArrayList<>();
         for(RedeApoio r:redeDAO.listarPorIdoso(idIdoso)){
             Familiar f=familiarDAO.buscarPorId(r.getIdFamiliar()).orElse(null);
             if(f==null) continue;
-            todos.add(f);
+            todos.add(f);redes.add(r);
             if(nome!=null&&combina(nome,f,r)) opcoes.add(f);
         }
+        // Sem "pra/para/pro" (ou com uma palavra que nao e contato): procura o nome em qualquer parte da frase.
+        if(opcoes.isEmpty()){
+            for(String palavra:pedido.split("[^\\p{L}]+")){
+                List<Familiar> achados=new ArrayList<>();
+                for(int k=0;k<todos.size();k++) if(combina(palavra,todos.get(k),redes.get(k))) achados.add(todos.get(k));
+                if(!achados.isEmpty()){opcoes=achados;nome=palavra;break;}
+            }
+        }
         String contatos=todos.isEmpty()?"nenhum contato cadastrado":String.join(", ",todos.stream().map(Familiar::getNome).toList());
-        if(nome==null) throw new RecursoNaoEncontradoException("Nao entendi para quem enviar. Diga, por exemplo: manda mensagem pro Rafael. Contatos: "+contatos+".");
+        if(opcoes.isEmpty()&&nome==null) throw new RecursoNaoEncontradoException("Nao entendi para quem enviar. Contatos: "+contatos+".");
         if(opcoes.isEmpty()) throw new RecursoNaoEncontradoException("Nao encontrei '"+nome+"' na sua rede de apoio. Contatos: "+contatos+".");
         if(opcoes.size()>1) throw new ConflitoException("Contato ambiguo. Opcoes: "+opcoes.stream().map(Familiar::getNome).toList());
         Tarefa x=new Tarefa();x.setIdIdoso(idIdoso);x.setModo(TipoModoTarefa.FAZ_PRA_MIM);x.setPedido(pedido);x.setStatus(StatusTarefa.AGUARDANDO);x.setDataSolicitacao(LocalDateTime.now());x.setId(tarefaDAO.inserir(x));return x;
