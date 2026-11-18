@@ -30,7 +30,11 @@ function icon(name, className = "svg-icon") {
 }
 
 const state = {
-  screen: "home",
+  screen: localStorage.getItem("netinho-session") === "active" ? "home" : "login",
+  authenticated: localStorage.getItem("netinho-session") === "active",
+  demoUser: "netinho",
+  demoPassword: "123456",
+  profileName: "Maria Helena",
   taskText: "",
   taskDraft: null,
   guideStep: 0,
@@ -124,6 +128,7 @@ async function loadElder() {
   try {
     const elder = await apiRequest(`/idosos/${state.idosoId}`);
     state.idosoNome = elder.nome || state.idosoNome;
+    state.profileName = elder.nome || state.profileName;
     state.silentMode = Boolean(elder.semLeitura);
   } catch {
     state.apiConnected = false;
@@ -176,7 +181,10 @@ function renderHome() {
       <header class="home-header">
         <div class="header-row">
           <span class="brand" aria-label="Netinho Virtual">N</span>
-          <button class="header-icon" data-action="settings" aria-label="Configurações">${icon("settings")}</button>
+          <div class="header-actions">
+            <button class="header-icon" data-action="profile" aria-label="Meu perfil">${icon("person")}</button>
+            <button class="header-icon" data-action="settings" aria-label="Configurações">${icon("settings")}</button>
+          </div>
         </div>
         <h1>Oi, ${escapeHtml(state.idosoNome)}!</h1>
         <p>Aperte o botão rosa e fale.</p>
@@ -459,6 +467,72 @@ function renderEmergency() {
     </section>`;
 }
 
+function renderLogin() {
+  return `
+    <section class="login-screen">
+      <div class="login-brand">
+        <span class="brand login-brand-mark" aria-hidden="true">N</span>
+        <p>Netinho Virtual</p>
+      </div>
+      <div class="login-card">
+        <h1>Entrar</h1>
+        <p class="login-subtitle">Acesse o protótipo do assistente digital.</p>
+        <form id="login-form">
+          <label for="login-user">Usuário</label>
+          <input id="login-user" name="username" type="text" autocomplete="username" value="${escapeHtml(state.demoUser)}" required>
+          <label for="login-password">Senha</label>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" value="${escapeHtml(state.demoPassword)}" required>
+          <div class="demo-credentials" aria-label="Dados de demonstração">
+            <strong>Acesso de demonstração</strong>
+            <span>Usuário: <b>${escapeHtml(state.demoUser)}</b></span>
+            <span>Senha: <b>${escapeHtml(state.demoPassword)}</b></span>
+          </div>
+          <button class="action-blue login-button" type="submit">Entrar</button>
+        </form>
+      </div>
+      <p class="login-warning">Demonstração local. Este login não representa autenticação segura do backend.</p>
+    </section>`;
+}
+
+function renderProfile() {
+  return `
+    <section class="screen profile-screen">
+      ${topbar()}
+      ${faceLine("Meu perfil")}
+      <div class="screen-content">
+        <div class="panel profile-card">
+          <div class="profile-avatar" aria-hidden="true">${icon("person")}</div>
+          <h2>${escapeHtml(state.profileName)}</h2>
+          <p class="profile-username">Usuário: <strong>${escapeHtml(state.demoUser)}</strong></p>
+
+          <dl class="profile-details">
+            <div>
+              <dt>Cadastro</dt>
+              <dd>Idoso nº ${escapeHtml(state.idosoId)}</dd>
+            </div>
+            <div>
+              <dt>API</dt>
+              <dd>${escapeHtml(state.apiBase)}</dd>
+            </div>
+            <div>
+              <dt>Conexão</dt>
+              <dd>${state.apiConnected ? "Conectada" : "Desconectada"}</dd>
+            </div>
+            <div>
+              <dt>Modo sem leitura</dt>
+              <dd>${state.silentMode ? "Ativado" : "Desativado"}</dd>
+            </div>
+          </dl>
+
+          <div class="actions single">
+            <button class="action-blue" data-action="settings">${icon("settings", "inline-icon")} Configurações</button>
+            <button class="action-no" data-action="logout">Sair da conta</button>
+          </div>
+        </div>
+      </div>
+    </section>`;
+}
+
 function renderSettings() {
   return `
     <section class="screen">
@@ -490,6 +564,7 @@ function renderSettings() {
 
 function render() {
   const screens = {
+    login: renderLogin,
     home: renderHome,
     make: renderMake,
     confirm: renderConfirm,
@@ -501,6 +576,7 @@ function render() {
     help: renderHelp,
     emergency: renderEmergency,
     settings: renderSettings,
+    profile: renderProfile,
   };
   app.innerHTML = (screens[state.screen] || renderHome)();
   if (state.screen === "make") document.querySelector("#task-text")?.focus({ preventScroll: true });
@@ -623,6 +699,21 @@ function updateUndoCountdown() {
 
 app.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (event.target.id === "login-form") {
+    const form = new FormData(event.target);
+    const username = String(form.get("username")).trim();
+    const password = String(form.get("password"));
+    if (username !== state.demoUser || password !== state.demoPassword) {
+      showToast("Usuário ou senha incorretos.");
+      return;
+    }
+    state.authenticated = true;
+    localStorage.setItem("netinho-session", "active");
+    state.screen = "home";
+    showToast(`Bem-vinda, ${state.profileName}.`);
+    render();
+    loadElder();
+  }
   if (event.target.id === "task-form") {
     const text = new FormData(event.target).get("taskText").trim();
     if (text) await createTaskDraft(text);
@@ -732,6 +823,12 @@ app.addEventListener("click", async (event) => {
     }
   }
   else if (action === "settings") state.screen = "settings";
+  else if (action === "profile") state.screen = "profile";
+  else if (action === "logout") {
+    state.authenticated = false;
+    localStorage.removeItem("netinho-session");
+    state.screen = "login";
+  }
   else if (action === "listen") beginListening();
   else if (action === "speak") {
     const text = document.querySelector(".face-line h1, .home-header h1")?.textContent;
