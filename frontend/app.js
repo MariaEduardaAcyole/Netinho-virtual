@@ -1136,7 +1136,7 @@ function clearScamImage() {
 }
 
 function parseDraft(text) {
-  const contactMatch = text.match(/(?:para|pra|pro)\s+(?:o\s+|a\s+)?([A-Za-zÀ-ÿ]+)/i);
+  const contactMatch = text.match(/(?:para|pra|pro)\s+(?:(?:o|a|meu|minha|seu|sua)\s+)*([A-Za-zÀ-ÿ]+)/i);
   const contentMatch = text.match(/(?:dizendo|falando)\s+(?:que\s+)?(.+)$/i);
   return {
     contact: contactMatch ? contactMatch[1] : "seu contato",

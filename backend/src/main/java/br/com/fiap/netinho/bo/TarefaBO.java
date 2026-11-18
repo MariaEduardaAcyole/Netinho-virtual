@@ -49,13 +49,17 @@ public class TarefaBO {
         }
 
         String nome=extrairContato(pedido);
-        if(nome==null) throw new RecursoNaoEncontradoException("Contato nao encontrado no pedido.");
+        List<Familiar> todos=new ArrayList<>();
         List<Familiar> opcoes=new ArrayList<>();
         for(RedeApoio r:redeDAO.listarPorIdoso(idIdoso)){
             Familiar f=familiarDAO.buscarPorId(r.getIdFamiliar()).orElse(null);
-            if(f!=null&&normalizar(f.getNome()).contains(normalizar(nome))) opcoes.add(f);
+            if(f==null) continue;
+            todos.add(f);
+            if(nome!=null&&combina(nome,f,r)) opcoes.add(f);
         }
-        if(opcoes.isEmpty()) throw new RecursoNaoEncontradoException("Contato nao encontrado na rede de apoio.");
+        String contatos=todos.isEmpty()?"nenhum contato cadastrado":String.join(", ",todos.stream().map(Familiar::getNome).toList());
+        if(nome==null) throw new RecursoNaoEncontradoException("Nao entendi para quem enviar. Diga, por exemplo: manda mensagem pro Rafael. Contatos: "+contatos+".");
+        if(opcoes.isEmpty()) throw new RecursoNaoEncontradoException("Nao encontrei '"+nome+"' na sua rede de apoio. Contatos: "+contatos+".");
         if(opcoes.size()>1) throw new ConflitoException("Contato ambiguo. Opcoes: "+opcoes.stream().map(Familiar::getNome).toList());
         Tarefa x=new Tarefa();x.setIdIdoso(idIdoso);x.setModo(TipoModoTarefa.FAZ_PRA_MIM);x.setPedido(pedido);x.setStatus(StatusTarefa.AGUARDANDO);x.setDataSolicitacao(LocalDateTime.now());x.setId(tarefaDAO.inserir(x));return x;
     }
@@ -116,8 +120,17 @@ public class TarefaBO {
         Passo p=passoDAO.listarPorGuia(x.getIdGuia()).stream().filter(v->v.getOrdem()==progresso.getOrDefault(id,1)).findFirst().orElseThrow(()->new RecursoNaoEncontradoException("Passo nao encontrado."));
         return "Procure "+p.getElemento()+" na tela. Vou deixar ele brilhando. E so tocar nele.";
     }
+    /** Pega a palavra depois de para/pra/pro, pulando artigos e possessivos ("pro meu filho", "para a Beatriz"). */
     private String extrairContato(String pedido){
-        Matcher m=Pattern.compile("(?i)\\b(?:para|pra|pro)\\s+([A-Za-z]+)").matcher(pedido);return m.find()?m.group(1):null;
+        Matcher m=Pattern.compile("(?iu)(?<![\\p{L}])(?:para|pra|pro|pros|pras)\\s+(?:(?:o|a|os|as|meu|minha|meus|minhas|seu|sua)\\s+)*(\\p{L}+)").matcher(pedido);
+        return m.find()?m.group(1):null;
+    }
+    /** O contato combina pelo primeiro nome, por qualquer parte do nome ou pelo parentesco (filho, neta...). */
+    private boolean combina(String nome,Familiar f,RedeApoio r){
+        String alvo=normalizar(nome);
+        if(alvo.length()<2) return false;
+        for(String parte:normalizar(f.getNome()).split("\\s+")) if(parte.equals(alvo)) return true;
+        return normalizar(r.getParentesco()).equals(alvo);
     }
     public static String normalizar(String s){return s==null?"":java.text.Normalizer.normalize(s.toLowerCase(Locale.ROOT),java.text.Normalizer.Form.NFD).replaceAll("\\p{M}+","");}
 }

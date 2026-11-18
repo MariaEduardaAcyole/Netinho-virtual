@@ -2,6 +2,7 @@ package br.com.fiap.netinho.bo;
 
 import br.com.fiap.netinho.dao.*;
 import br.com.fiap.netinho.exception.ConflitoException;
+import br.com.fiap.netinho.exception.RecursoNaoEncontradoException;
 import br.com.fiap.netinho.exception.RegraNegocioException;
 import br.com.fiap.netinho.model.*;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,33 @@ class TarefaBOTest {
         when(redeDAO.listarPorIdoso(1L)).thenReturn(List.of(r1,r2));
         when(familiarDAO.buscarPorId(1L)).thenReturn(Optional.of(f1));when(familiarDAO.buscarPorId(2L)).thenReturn(Optional.of(f2));
         assertThrows(ConflitoException.class,()->bo().criar(1L,"manda mensagem pra Rafael dizendo oi"));
+    }
+    private void redeDaMaria(){
+        Idoso i=new Idoso();i.setId(1L);
+        RedeApoio r1=new RedeApoio();r1.setIdFamiliar(1L);r1.setParentesco("filho");
+        RedeApoio r2=new RedeApoio();r2.setIdFamiliar(2L);r2.setParentesco("neta");
+        Familiar f1=new Familiar();f1.setId(1L);f1.setNome("Rafael Silva");
+        Familiar f2=new Familiar();f2.setId(2L);f2.setNome("Beatriz Lima");
+        lenient().when(idosoDAO.buscarPorId(1L)).thenReturn(Optional.of(i));
+        lenient().when(redeDAO.listarPorIdoso(1L)).thenReturn(List.of(r1,r2));
+        lenient().when(familiarDAO.buscarPorId(1L)).thenReturn(Optional.of(f1));
+        lenient().when(familiarDAO.buscarPorId(2L)).thenReturn(Optional.of(f2));
+        lenient().when(tarefaDAO.inserir(any())).thenReturn(77L);
+    }
+    @Test void entendeContatoComArtigoPossessivoOuParentesco(){
+        redeDaMaria();
+        for(String pedido:List.of("Manda mensagem pro Rafael dizendo que chego as 3",
+                "Manda mensagem para o Rafael dizendo oi","Manda uma mensagem pra minha neta dizendo oi",
+                "Avisa pro meu filho que cheguei","manda mensagem pra beatriz")){
+            Tarefa t=bo().criar(1L,pedido);
+            assertEquals(StatusTarefa.AGUARDANDO,t.getStatus(),pedido);
+        }
+    }
+    @Test void contatoDesconhecidoListaOsContatos(){
+        redeDaMaria();
+        RecursoNaoEncontradoException e=assertThrows(RecursoNaoEncontradoException.class,()->bo().criar(1L,"Manda mensagem pra Joana dizendo oi"));
+        assertTrue(e.getMessage().contains("Rafael Silva"));
+        verify(tarefaDAO,never()).inserir(any());
     }
     @Test void desfazerDepoisDeCincoSegundosFalha(){
         Tarefa t=new Tarefa();t.setStatus(StatusTarefa.CONCLUIDA);t.setDataConclusao(LocalDateTime.now().minusSeconds(6));
