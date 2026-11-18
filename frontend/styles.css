@@ -499,6 +499,38 @@ textarea.field.orange:focus { border-color: var(--orange); }
 
 /* ---------- Faz pra mim ---------- */
 
+.task-error {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--red-soft);
+  color: var(--night);
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.task-error .ico { flex: none; width: 24px; height: 24px; color: var(--red); }
+.contact-picker { display: flex; flex-direction: column; gap: 8px; }
+.contact-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.contact-chip {
+  min-height: 52px;
+  padding: 10px 18px;
+  border: 2px solid var(--blue);
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--night);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.contact-chip small { font-size: 14px; font-weight: 600; color: #55596b; }
+.contact-chip:hover { background: #d3defc; }
+.contact-chip:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
 .preview { display: flex; flex-direction: column; gap: 10px; }
 .phone {
   overflow: hidden;

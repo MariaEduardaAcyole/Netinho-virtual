@@ -109,6 +109,7 @@ const state = {
   localHistory: readHistory(), // só emergências: a API não guarda esse registro
 
   taskText: "",
+  taskError: "",
   draft: null,
   undoLeft: 0,
 
@@ -187,6 +188,14 @@ function timeLabel(date) {
 
 class SessionExpiredError extends Error {}
 
+// A API respondeu, mas recusou o pedido (contato não encontrado, Pix, senha...). Não é falta de conexão.
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function apiRequest(path, { method = "GET", body } = {}) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -220,7 +229,7 @@ async function apiRequest(path, { method = "GET", body } = {}) {
     throw new SessionExpiredError("Sessão expirada");
   }
   if (!response.ok) {
-    throw new Error(data?.mensagem || `A API respondeu com erro ${response.status}.`);
+    throw new ApiError(data?.mensagem || `A API respondeu com erro ${response.status}.`, response.status);
   }
   return data;
 }
@@ -658,6 +667,30 @@ function phonePreview() {
     </div>`;
 }
 
+// Botões com os contatos da rede de apoio: tocar em um já começa o pedido com o nome certo.
+function contactPicker() {
+  const contacts = state.supportContacts || [];
+  if (!contacts.length) return "";
+  return `<div class="contact-picker" aria-label="Para quem?">
+      <span class="label">Para quem?</span>
+      <div class="contact-chips">${contacts.map((c) => `<button type="button" class="contact-chip" data-action="pick-contact" data-name="${escapeHtml(firstName(c.nome))}">${escapeHtml(firstName(c.nome))} <small>${escapeHtml(c.parentesco)}</small></button>`).join("")}</div>
+    </div>`;
+}
+
+function pickContact(name) {
+  const field = app.querySelector("#task-text");
+  const current = (field ? field.value : state.taskText || "").trim();
+  const replaced = current.replace(/((?:para|pra|pro)\s+(?:(?:o|a|meu|minha|seu|sua)\s+)*)[A-Za-zÀ-ÿ]+/i, `$1${name}`);
+  state.taskText = current && replaced !== current ? replaced : `Manda mensagem pro ${name} dizendo `;
+  state.taskError = "";
+  render();
+  const next = app.querySelector("#task-text");
+  if (next) {
+    next.focus();
+    next.setSelectionRange(next.value.length, next.value.length);
+  }
+}
+
 function renderMake() {
   return `
     <section class="screen">
@@ -669,6 +702,8 @@ function renderMake() {
           <textarea class="field with-mic" id="task-text" name="taskText" placeholder="Ex.: Manda mensagem pro Rafael dizendo que chego às 3">${escapeHtml(state.taskText)}</textarea>
           <button class="field-mic" type="button" data-action="listen" aria-label="Falar pedido">${icon("mic")}</button>
         </div>
+        ${state.taskError ? `<p class="task-error" role="alert">${icon("alert")}<span>${escapeHtml(state.taskError)}</span></p>` : ""}
+        ${contactPicker()}
         <p class="note" style="padding:0;text-align:left">Eu vou mostrar tudo para você confirmar antes.</p>
         <div class="btn-row auto">
           <button class="btn btn-soft" type="button" data-action="home">Voltar</button>
@@ -1079,6 +1114,8 @@ function go(screen, { keepScam = false } = {}) {
   }
   window.clearTimeout(holdTimer);
   state.hold = "idle";
+  if (screen === "make" && state.screen !== "make") state.taskError = "";
+  if (screen === "make" && !(state.supportContacts || []).length) refreshSupportNetwork(screen);
   state.screen = screen;
   render();
   if (screen === "help" || screen === "emergency") refreshSupportNetwork(screen);
@@ -1144,6 +1181,15 @@ function parseDraft(text) {
   };
 }
 
+function taskErrorMessage(error) {
+  const msg = String(error.message || "");
+  if (error.status === 404) return "Não achei essa pessoa nos seus contatos. Toque em um nome abaixo para escolher.";
+  if (error.status === 409) return "Tem mais de uma pessoa com esse nome. Toque no nome certo abaixo.";
+  if (/pagamento|banc|pix/i.test(msg)) return "Por segurança, eu não faço Pix, pagamentos nem nada de banco.";
+  if (/senha|codigo|token|sms/i.test(msg)) return "Por segurança, eu não digito senhas nem códigos.";
+  return msg;
+}
+
 async function submitTask(text) {
   if (!text) {
     showToast("Escreva ou fale o seu pedido.");
@@ -1156,8 +1202,15 @@ async function submitTask(text) {
     });
     state.draft = { id: task.id, ...parseDraft(text) };
     state.taskText = "";
+    state.taskError = "";
     go("confirm");
   } catch (error) {
+    if (error instanceof ApiError) {
+      state.taskText = text;
+      state.taskError = taskErrorMessage(error);
+      render();
+      return;
+    }
     showApiError(error, "Não deu para preparar a mensagem agora. Seu pedido continua escrito aqui.");
   }
 }
@@ -1518,6 +1571,7 @@ async function handleAction(button) {
     case "listen": return beginListening();
     case "stop-listen": return stopListening();
     case "speak": return speakScreen();
+    case "pick-contact": return pickContact(button.dataset.name);
     case "confirm-task": return confirmTask();
     case "cancel-task": return cancelTask();
     case "undo": return undoTask();

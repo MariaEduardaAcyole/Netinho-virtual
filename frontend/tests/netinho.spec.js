@@ -39,7 +39,13 @@ async function simularApi(page, { fora = false, sessaoExpirada = false } = {}) {
       { ordem: 1, elemento: "Aplicativo Meu INSS", instrucao: "Abra o aplicativo Meu INSS." },
       { ordem: 2, elemento: "Entrar", instrucao: "Entre com a conta gov.br." },
     ]);
-    if (p === "/tarefas" && req.method() === "POST") { passo = 0; return json({ id: 77 }, 201); }
+    if (p === "/tarefas" && req.method() === "POST") {
+      if (corpo.pedido && !/rafael|filho/i.test(corpo.pedido)) {
+        return json({ mensagem: "Nao encontrei 'Joana' na sua rede de apoio. Contatos: Rafael Silva." }, 404);
+      }
+      passo = 0;
+      return json({ id: 77 }, 201);
+    }
     if (p === "/tarefas/77/passo-atual") {
       const passos = [["Aplicativo Meu INSS", "Abra o aplicativo Meu INSS."], ["Entrar", "Entre com a conta gov.br."]];
       return json({ nmPasElemento: passos[passo][0], txPasInstrucao: passos[passo][1] });
@@ -111,6 +117,21 @@ test("Faz pra mim: escrever, confirmar e desfazer em 5 segundos", async ({ page 
   await page.getByRole("button", { name: /Desfazer/ }).click();
   await expect(page.getByRole("status")).toContainText("Tarefa desfeita");
   expect(chamadas.some((c) => c.caminho === "/tarefas/77/desfazer")).toBe(true);
+});
+
+test("Faz pra mim: contato desconhecido mostra aviso e deixa escolher o contato", async ({ page }) => {
+  const chamadas = await simularApi(page);
+  await entrar(page);
+  await page.getByRole("button", { name: "Faz pra mim" }).click();
+  await page.getByLabel("Pode escrever ou falar").fill("Manda mensagem pra Joana dizendo oi");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByRole("alert")).toContainText("Não achei essa pessoa");
+  await expect(page.getByText("Não consegui conectar.")).toHaveCount(0);
+  await page.getByRole("button", { name: /Rafael/ }).click();
+  await expect(page.getByLabel("Pode escrever ou falar")).toHaveValue("Manda mensagem pra Rafael dizendo oi");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByRole("heading", { name: "Mando para Rafael?" })).toBeVisible();
+  expect(chamadas.filter((c) => c.caminho === "/tarefas").length).toBe(2);
 });
 
 test("Me ensina: só guias ativos, passo a passo até concluir", async ({ page }) => {
