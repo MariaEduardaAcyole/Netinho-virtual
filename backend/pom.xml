@@ -34,6 +34,12 @@
       <version>23.5.0.24.07</version>
     </dependency>
     <dependency>
+      <!-- SDK oficial da Anthropic: analise de prints no "E golpe?" -->
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>3.3.0</version>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>

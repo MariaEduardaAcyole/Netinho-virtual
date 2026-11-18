@@ -1,5 +1,6 @@
 package br.com.fiap.netinho.controller;
 
+import br.com.fiap.netinho.auth.Sessao;
 import br.com.fiap.netinho.bo.CrudBO;
 import br.com.fiap.netinho.dto.Dtos.*;
 import br.com.fiap.netinho.model.*;
@@ -24,7 +25,7 @@ public class CrudController {
     @PutMapping("/idosos/{id}/modo-sem-leitura") public ResponseEntity<Void> modo(@PathVariable Long id,@RequestBody ModoSemLeituraRequest r){bo.modoSemLeitura(id,r.ativo());return ResponseEntity.noContent().build();}
 
     @GetMapping("/familiares") public List<Familiar> familiares(){return bo.listarFamiliares();}
-    @GetMapping("/familiares/{id}") public Familiar familiar(@PathVariable Long id){return bo.buscarFamiliar(id);}
+    @GetMapping("/familiares/{id}") public Familiar familiar(@PathVariable Long id){Long s=Sessao.idoso();return s==null?bo.buscarFamiliar(id):bo.buscarFamiliarDaRede(s,id);}
     @PostMapping("/familiares") public ResponseEntity<Familiar> criarFamiliar(@RequestBody Familiar x){Long id=bo.criarFamiliar(x);x.setId(id);return ResponseEntity.created(URI.create("/familiares/"+id)).body(x);}
     @PutMapping("/familiares/{id}") public Familiar atualizarFamiliar(@PathVariable Long id,@RequestBody Familiar x){bo.atualizarFamiliar(id,x);x.setId(id);return x;}
     @DeleteMapping("/familiares/{id}") public ResponseEntity<Void> excluirFamiliar(@PathVariable Long id){bo.excluirFamiliar(id);return ResponseEntity.noContent().build();}

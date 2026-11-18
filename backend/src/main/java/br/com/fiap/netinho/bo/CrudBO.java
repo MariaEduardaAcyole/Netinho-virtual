@@ -12,8 +12,9 @@ import java.util.List;
 @Service
 public class CrudBO {
     private final IdosoDAO idosoDAO;private final FamiliarDAO familiarDAO;private final VoluntarioDAO voluntarioDAO;
-    private final GuiaDAO guiaDAO;private final PassoDAO passoDAO;
-    public CrudBO(IdosoDAO idosoDAO,FamiliarDAO familiarDAO,VoluntarioDAO voluntarioDAO,GuiaDAO guiaDAO,PassoDAO passoDAO){
+    private final GuiaDAO guiaDAO;private final PassoDAO passoDAO;private final RedeApoioDAO redeDAO;
+    public CrudBO(IdosoDAO idosoDAO,FamiliarDAO familiarDAO,VoluntarioDAO voluntarioDAO,GuiaDAO guiaDAO,PassoDAO passoDAO,RedeApoioDAO redeDAO){
+        this.redeDAO=redeDAO;
         this.idosoDAO=idosoDAO;this.familiarDAO=familiarDAO;this.voluntarioDAO=voluntarioDAO;this.guiaDAO=guiaDAO;this.passoDAO=passoDAO;}
 
     public List<Idoso> listarIdosos(){return idosoDAO.listar();}
@@ -24,6 +25,11 @@ public class CrudBO {
     public void modoSemLeitura(Long id,boolean ativo){buscarIdoso(id);idosoDAO.atualizarModoSemLeitura(id,ativo);}
 
     public List<Familiar> listarFamiliares(){return familiarDAO.listar();}
+    /** Familiar visto pelo app do idoso: so quem esta na rede de apoio dele. */
+    public Familiar buscarFamiliarDaRede(Long idIdoso,Long idFamiliar){
+        if(redeDAO.buscar(idIdoso,idFamiliar).isEmpty())throw new br.com.fiap.netinho.exception.AcessoNegadoException("Este familiar nao esta na sua rede de apoio.");
+        return buscarFamiliar(idFamiliar);
+    }
     public Familiar buscarFamiliar(Long id){return familiarDAO.buscarPorId(id).orElseThrow(()->new RecursoNaoEncontradoException("Familiar nao encontrado."));}
     public Long criarFamiliar(Familiar x){if(x.getDataCadastro()==null)x.setDataCadastro(java.time.LocalDateTime.now());return familiarDAO.inserir(x);}
     public void atualizarFamiliar(Long id,Familiar x){buscarFamiliar(id);familiarDAO.atualizar(id,x);}

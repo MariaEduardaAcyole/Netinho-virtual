@@ -58,7 +58,7 @@ O fluxo principal é:
   para essa versão; se estiver instalada em outra pasta, ajuste
   `.vscode/settings.json`.
 - **Maven 3.9 ou compatível** para compilar, testar e iniciar a API. O
-  Dockerfile usa Maven 3.9.9.
+  Dockerfile usa Maven 3.9.12.
 - **Oracle Database acessível** para iniciar a aplicação e executar os fluxos
   persistidos.
 - **Oracle SQL Developer** (ou ferramenta equivalente) para executar os
@@ -96,6 +96,12 @@ Conecte-se, no SQL Developer, ao schema que será utilizado pela API. Execute
    demonstração.
 3. `backend/src/main/resources/db/03_netinho_dql.sql` — consultas opcionais
    para conferir os dados.
+4. `backend/src/main/resources/db/05_netinho_acesso.sql` — cria a tabela de
+   login (`ACESSO`) e a conta de demonstração **netinho / 123456**. Sem ele
+   ninguém consegue entrar no app.
+5. `backend/src/main/resources/db/06_netinho_guias_completos.sql` — completa os
+   passos dos guias (todos os ativos ficam com 5 ou 6 passos). Pode ser
+   executado mais de uma vez.
 
 O DDL e o DML são para a preparação inicial do schema; não os execute novamente
 em um banco já carregado.
@@ -114,7 +120,20 @@ ambiente ou crie `backend/.env` com uma chave por linha:
 DB_URL=jdbc:oracle:thin:@//<host>:<porta>/<service_name>
 DB_USER=<usuario_do_schema>
 DB_PASSWORD=<senha>
+# Assina os tokens de login (mínimo 32 caracteres, aleatório). Sem ele, as
+# sessões caem toda vez que a API reinicia.
+AUTH_SECRET=<texto_aleatorio_longo>
+# Opcional: análise de prints no "É golpe?" com o Claude. Sem a chave, o app
+# usa só as regras de texto e responde com cautela (risco MÉDIO) para imagens.
+ANTHROPIC_API_KEY=<chave_da_anthropic>
+# Acesso de administração aos CRUDs (mínimo 32 caracteres, aleatório).
+# Sem ele, só o app do idoso consegue usar a API.
+ADMIN_TOKEN=<outro_texto_aleatorio_longo>
 ```
+
+Para gerar os dois valores aleatórios: `openssl rand -hex 32`.
+
+Para testar a API sem login (só localmente), use `AUTH_ENABLED=false`.
 
 Use os valores fornecidos pelo administrador do banco. Algumas instalações
 Oracle usam SID em vez de service name; nesse caso, o formato pode ser
@@ -164,9 +183,10 @@ Set-Location .\frontend
 python -m http.server 5500
 ```
 
-Abra `http://localhost:5500` no navegador. Em **Configurações**, confirme a URL
-da API (`http://localhost:8080`) e o código do idoso (`1` por padrão), depois
-selecione **Conectar**.
+Abra `http://localhost:5500` no navegador e entre com **netinho / 123456**
+(conta criada pelo script `05`). O endereço da API (`http://localhost:8080`)
+pode ser trocado em **Configurações**. Publicado, o site procura a API no
+mesmo endereço, em `/api`.
 
 Não abra `frontend/index.html` diretamente como arquivo. O navegador precisa
 carregar a página por HTTP para que a integração com a API funcione. O CORS do
@@ -218,6 +238,19 @@ Para gerar o JAR executável:
 mvn package
 ```
 
+### Testes das telas (Playwright)
+
+As telas têm 20 testes automáticos (temas claro e escuro, celular de 360 px),
+com a API simulada no próprio teste. Sem instalar nada, usando Docker:
+
+```powershell
+Set-Location .\frontend
+docker run --rm -v "${PWD}:/work" -w /work mcr.microsoft.com/playwright:v1.64.1-noble sh -c "npm install && npx playwright test"
+```
+
+`tests/real.spec.js` é um teste de fumaça contra um ambiente de verdade; só roda
+com `NETINHO_URL` definido (ele grava um alerta na conta de demonstração).
+
 O JAR será criado em `backend/target/`. Os testes unitários atuais não precisam
 de Oracle; para validar a persistência real, a aplicação precisa conectar a um
 schema Oracle.
@@ -242,7 +275,13 @@ anterior.
 - `/idosos`, `/familiares`, `/voluntarios`, `/guias` e `/passos`: cadastros e
   consultas.
 - `/tarefas`: criação, confirmação e avanço de tarefas/guias.
-- `/golpes`: análise de conteúdo suspeito.
+- `/auth/login`: troca usuário e senha por um token. Todas as outras rotas
+  (menos `/saude`) exigem `Authorization: Bearer <token>`. O token do login só
+  alcança as rotas do app e os dados do próprio idoso; os CRUDs exigem o
+  `ADMIN_TOKEN`.
+- `/golpes`: análise de conteúdo suspeito; `/golpes/verificar-imagem` recebe
+  um print em base64.
+- `/saude`: responde 200 quando a API e o banco estão no ar (usado pelo Docker).
 - `/atendimentos`, `/emergencias`, `/idosos/{id}/rede-apoio` e
   `/idosos/{id}/historico`: ajuda e rede de apoio.
 - `/consentimentos` e `/lembretes`: configurações e lembretes.
@@ -253,8 +292,12 @@ rotas e exemplos de corpos. Exemplos executáveis estão em
 
 ## Limitações e segurança
 
-- A API **não implementa login nem JWT**. Não a exponha à internet nem use dados
-  reais sem implementar autenticação e autorização.
+- O login usa senha com hash PBKDF2 e token assinado (HMAC), com bloqueio de 5
+  minutos depois de 5 senhas erradas. A conta do idoso só age sobre os próprios
+  dados: o backend usa o idoso do token (ignora outro `idIdoso` no corpo) e
+  confere o dono de tarefas, lembretes e familiares.
+- A análise de imagens envia o print para a API da Anthropic (Claude). Avise a
+  pessoa antes de usar com mensagens reais.
 - Os dados do DML são de demonstração.
 - A interface de celular é uma prévia; não envia mensagens nem toca no celular.
 - Emergências e chamadas são fluxos demonstrativos; não contatam familiares ou

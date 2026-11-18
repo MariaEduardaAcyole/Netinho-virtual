@@ -1,0 +1,27 @@
+
+# ─── Netinho Virtual — bloco independente, stack em /opt/netinho ──────────────
+# Site e API na mesma origem: /api/* vai para a API Spring (sem o prefixo),
+# o resto para o nginx com o frontend. Recarregar após editar:
+#   docker exec devlib-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+netinho.46-202-147-251.sslip.io {
+	encode zstd gzip
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+	request_body {
+		max_size 1MB
+	}
+	handle_path /api/* {
+		reverse_proxy netinho-api:8080
+	}
+	handle {
+		reverse_proxy netinho-web:80
+	}
+	log {
+		output stdout
+		format console
+	}
+}

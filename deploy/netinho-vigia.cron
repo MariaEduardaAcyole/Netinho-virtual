@@ -1,0 +1,2 @@
+# Reinicia a API do Netinho se ela ficar "unhealthy" (ver /opt/netinho/deploy/vigia.sh).
+*/2 * * * * root /opt/netinho/deploy/vigia.sh

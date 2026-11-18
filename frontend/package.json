@@ -1,0 +1,11 @@
+{
+  "name": "netinho-frontend",
+  "private": true,
+  "description": "Testes automáticos das telas do Netinho Virtual (o app em si não tem build).",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

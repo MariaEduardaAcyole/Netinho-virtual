@@ -1,3 +1,7 @@
+> Todas as rotas, menos `/auth/login` e `/saude`, exigem `Authorization: Bearer <token>`.
+> O token do login (conta do idoso) alcança só as rotas usadas pelo app e os dados do próprio idoso;
+> as demais (CRUDs de cadastro) exigem o `ADMIN_TOKEN` configurado na API.
+
 # Endpoints da API
 
 Base local: `http://localhost:8080`. Os exemplos de corpos abaixo são JSON. A
@@ -32,6 +36,9 @@ API não implementa autenticação.
 
 | Método | Rota | Corpo |
 |---|---|---|
+| POST | `/auth/login` | `{"usuario":"netinho","senha":"123456"}` → `{token, idIdoso, nome, expiraEm}` |
+| GET | `/saude` | - (200 com banco no ar, 503 sem banco) |
+| POST | `/golpes/verificar-imagem` | `{"idIdoso":1,"texto":"","imagemBase64":"...","tipoImagem":"image/jpeg"}` |
 | POST | `/tarefas` | `{"idIdoso":1,"pedido":"..."}` ou `{"idIdoso":1,"idGuia":3}` para abrir um guia escolhido |
 | GET | `/tarefas/{id}` | - |
 | GET | `/idosos/{id}/tarefas` | - |

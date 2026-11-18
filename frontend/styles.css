@@ -179,6 +179,7 @@ textarea::placeholder, input::placeholder { color: #8b8fa3; }
   transition: background .15s, transform .15s;
 }
 .btn:active:not(:disabled) { transform: scale(.98); }
+.btn:disabled { opacity: .6; cursor: progress; }
 .btn .ico { width: 24px; height: 24px; }
 
 .btn-soft:hover { background: var(--soft-hover); }
@@ -342,6 +343,9 @@ textarea.field.orange:focus { border-color: var(--orange); }
   background: var(--card);
   color: var(--ink);
   box-shadow: 0 24px 60px #0006;
+}
+@media (prefers-color-scheme: dark) {
+  .login-card { background: #23234a; border: 1px solid #3a3a66; }
 }
 .login-card h1 { margin: 0; font-size: 34px; letter-spacing: -.025em; }
 .login-card .sub { margin: -8px 0 4px; color: var(--muted); font-size: 17px; }

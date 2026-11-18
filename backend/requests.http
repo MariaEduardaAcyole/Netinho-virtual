@@ -1,48 +1,71 @@
 ### Exemplos de chamadas locais; use com a API em execucao e dados do schema carregados.
+### Todas as rotas (menos /auth/login e /saude) exigem um token.
+### Para os CRUDs abaixo use o ADMIN_TOKEN do .env (acesso de administracao).
+### O token do login so alcanca as rotas do app e os dados do proprio idoso.
+@token = cole-aqui-o-ADMIN_TOKEN
+
+### Entrar (conta de demonstracao criada pelo script 05)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{"usuario":"netinho","senha":"123456"}
+
+### Saude da API e do banco
+GET http://localhost:8080/saude
+
 ### Listar idosos
 GET http://localhost:8080/idosos
+Authorization: Bearer {{token}}
 
 ### Criar idoso
 POST http://localhost:8080/idosos
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"nome":"Pessoa Sintetica","telefone":"11900000000","aparelho":"ANDROID","nomeAssistente":"Netinho","voz":"FEMININA","jeitoFalar":"CALMA","semLeitura":false,"aceitaVoluntario":true,"dataCadastro":"2026-11-17T10:00:00"}
 
 ### Criar tarefa
 POST http://localhost:8080/tarefas
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"idIdoso":1,"pedido":"manda mensagem pro Rafael dizendo que chego as 3"}
 
 ### Confirmar tarefa
 PUT http://localhost:8080/tarefas/100/confirmar
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"resposta":"SIM"}
 
 ### Verificar golpe
 POST http://localhost:8080/golpes/verificar
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"idIdoso":1,"texto":"Mae, troquei de numero. Me manda um Pix de R$ 800 agora, e urgente","imagem":false}
 
 ### Notificacao automatica
 POST http://localhost:8080/golpes/notificacao-recebida
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"idIdoso":1,"texto":"Seu INSS esta bloqueado clique http://exemplo.test","imagem":false}
 
 ### Criar atendimento
 POST http://localhost:8080/atendimentos
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"idIdoso":1,"idTarefa":2,"idPasso":3,"tentativas":1}
 
 ### Relatorio de horas
 GET http://localhost:8080/voluntarios/1/relatorio-horas
+Authorization: Bearer {{token}}
 
 ### Emergencia
 POST http://localhost:8080/emergencias
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {"idIdoso":1}

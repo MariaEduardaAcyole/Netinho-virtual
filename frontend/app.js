@@ -80,14 +80,25 @@ function readHistory() {
   }
 }
 
-const loggedIn = readStorage("netinho-session", "") === "active";
+// Em desenvolvimento a API roda em localhost:8080; publicada, fica no mesmo domínio em /api.
+function defaultApiBase() {
+  const { protocol, hostname, origin } = window.location;
+  const local = protocol === "file:" || ["localhost", "127.0.0.1", "[::1]", ""].includes(hostname);
+  return local ? "http://localhost:8080" : `${origin}/api`;
+}
+
+// A sessão é o token devolvido por POST /auth/login; sem token, a pessoa começa no login.
+const savedToken = readStorage("netinho-token", "");
 
 const state = {
-  screen: loggedIn ? "home" : "login",
+  screen: savedToken ? "home" : "login",
+  token: savedToken,
+  // Conta de demonstração mostrada na tela de login (a senha é conferida pela API).
   demoUser: "netinho",
   demoPassword: "123456",
-  apiBase: readStorage("netinho-api-url", "http://localhost:8080"),
-  idosoId: Number(readStorage("netinho-idoso-id", "1")),
+  user: readStorage("netinho-user", "netinho"),
+  apiBase: readStorage("netinho-api-url", defaultApiBase()),
+  idosoId: Number(readStorage("netinho-idoso-id", "0")) || null,
   idosoNome: "Maria Helena",
   silentMode: false,
   apiConnected: null, // null = ainda não testado
@@ -110,6 +121,8 @@ const state = {
 
   scamText: "",
   scamImg: "",
+  scamFile: null,
+  busy: "",
   scam: null,
 
   hold: "idle", // idle | holding | done
@@ -172,20 +185,27 @@ function timeLabel(date) {
 
 /* ---------------------------------------------------------------- API */
 
+class SessionExpiredError extends Error {}
+
 async function apiRequest(path, { method = "GET", body } = {}) {
+  const headers = { Accept: "application/json" };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
   let response;
   try {
     response = await fetch(`${state.apiBase.replace(/\/+$/, "")}${path}`, {
       method,
-      headers: body === undefined ? { Accept: "application/json" } : {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
     state.apiConnected = false;
     throw error;
+  }
+  // 502/503/504 vêm do proxy quando a API está fora do ar: é falta de conexão, não resposta da API.
+  if ([502, 503, 504].includes(response.status)) {
+    state.apiConnected = false;
+    throw new TypeError("API indisponível");
   }
   state.apiConnected = true;
   const text = response.status === 204 ? "" : await response.text();
@@ -195,10 +215,35 @@ async function apiRequest(path, { method = "GET", body } = {}) {
   } catch {
     data = null;
   }
+  if (response.status === 401 && path !== "/auth/login") {
+    endSession("Sua sessão terminou. Entre de novo, por favor.");
+    throw new SessionExpiredError("Sessão expirada");
+  }
   if (!response.ok) {
     throw new Error(data?.mensagem || `A API respondeu com erro ${response.status}.`);
   }
   return data;
+}
+
+function startSession(login) {
+  state.token = login.token;
+  state.idosoId = login.idIdoso;
+  state.idosoNome = login.nome || state.idosoNome;
+  writeStorage("netinho-token", login.token);
+  writeStorage("netinho-idoso-id", String(login.idIdoso));
+}
+
+function endSession(message) {
+  state.token = "";
+  state.idosoId = null;
+  state.supportContacts = [];
+  state.reminders = [];
+  state.history = null;
+  state.error = "";
+  writeStorage("netinho-token", null);
+  writeStorage("netinho-idoso-id", null);
+  go("login");
+  if (message) showToast(message);
 }
 
 function friendlyError(error, offlineMessage) {
@@ -208,6 +253,7 @@ function friendlyError(error, offlineMessage) {
 
 // Mostra o painel "Não consegui conectar." com uma mensagem adequada à ação que falhou.
 function showApiError(error, offlineMessage = "Não consegui falar com a API. Verifique se o backend está ligado.") {
+  if (error instanceof SessionExpiredError) return;
   state.error = friendlyError(error, offlineMessage);
   render();
 }
@@ -534,9 +580,9 @@ function renderLogin() {
           <span>Usuário: <b>${escapeHtml(state.demoUser)}</b></span>
           <span>Senha: <b>${escapeHtml(state.demoPassword)}</b></span>
         </div>
-        <button class="btn btn-pink" type="submit">Entrar</button>
+        <button class="btn btn-pink" type="submit" ${state.busy === "login" ? "disabled" : ""}>${state.busy === "login" ? "Entrando…" : "Entrar"}</button>
       </form>
-      <p class="login-warning">Demonstração local. Este login não representa autenticação segura do backend.</p>
+      <p class="login-warning">Conta de demonstração. A senha é conferida pelo servidor do Netinho.</p>
     </section>`;
 }
 
@@ -765,7 +811,7 @@ function renderScam() {
         <div class="warning">${icon("shield")}Não abra links nem envie dinheiro enquanto verificamos.</div>
         <div class="btn-row auto push-bottom">
           <button class="btn btn-card btn-tall" type="button" data-action="home">Voltar</button>
-          <button class="btn btn-orange" type="submit">Verificar</button>
+          <button class="btn btn-orange" type="submit" ${state.busy === "scam" ? "disabled" : ""}>${state.busy === "scam" ? (state.scamFile ? "Olhando a foto…" : "Verificando…") : "Verificar"}</button>
         </div>
       </form>
     </section>`;
@@ -807,7 +853,7 @@ function renderHelp() {
       <h1 class="title">Quem você quer chamar?</h1>
       <div class="list">${contacts}</div>
       <div class="btn-stack push-bottom">
-        <p class="note" style="margin-bottom:4px;font-size:17px">Vou registrar seu pedido de ajuda pela API.</p>
+        <p class="note" style="margin-bottom:4px;font-size:17px">Vou avisar a sua família que você precisa de ajuda.</p>
         <button class="btn btn-green btn-lg" data-action="notify-family">${icon("users")}Pedir ajuda</button>
         <button class="btn btn-card" data-action="home">Agora não</button>
       </div>
@@ -837,7 +883,7 @@ function renderEmergency() {
         <strong>Contatos de confiança</strong>
         ${contacts}
         <button class="btn btn-ink" data-action="samu">Ligar 192 · SAMU</button>
-        <p class="small">O pedido é registrado na API. A ligação para 192 não é iniciada automaticamente.</p>
+        <p class="small">O pedido fica registrado para a sua família. A ligação para o 192 você faz pelo seu telefone.</p>
       </div>
     </section>`;
 }
@@ -894,7 +940,7 @@ function renderProfile() {
       <div class="profile-top">
         <span class="profile-photo" aria-hidden="true"></span>
         <h1>${escapeHtml(state.idosoNome)}</h1>
-        <span>Usuário: <strong>${escapeHtml(state.demoUser)}</strong></span>
+        <span>Usuário: <strong>${escapeHtml(state.user)}</strong></span>
       </div>
       <dl class="card details">
         <div><dt>Cadastro</dt><dd>Idoso nº ${escapeHtml(state.idosoId)}</dd></div>
@@ -918,12 +964,10 @@ function renderSettings() {
         <span class="switch-text"><strong>Modo sem leitura</strong><span>Tudo por voz, fotos e cores</span></span>
         <span class="track" aria-hidden="true"><span class="knob"></span></span>
       </button>
-      <p class="note left">O modo sem leitura é salvo no cadastro do idoso pela API.</p>
+      <p class="note left">Essa escolha fica salva no seu cadastro.</p>
       <form id="connection-form" class="card">
         <label class="label small" for="api-url" style="margin-bottom:-4px">Endereço da API</label>
         <input class="field sm" id="api-url" name="apiUrl" type="text" value="${escapeHtml(state.apiBase)}" required>
-        <label class="label small" for="idoso-id" style="margin-bottom:-4px">Código do idoso</label>
-        <input class="field sm" id="idoso-id" name="idosoId" type="text" inputmode="numeric" value="${escapeHtml(state.idosoId)}" required>
         <button class="btn btn-blue-soft" type="submit" style="margin-top:4px">Conectar</button>
       </form>
       <button class="btn btn-green push-bottom" style="min-height:72px;font-size:22px" data-action="home">Pronto</button>
@@ -1088,6 +1132,7 @@ async function refreshReminders(screen) {
 function clearScamImage() {
   if (state.scamImg) URL.revokeObjectURL(state.scamImg);
   state.scamImg = "";
+  state.scamFile = null;
 }
 
 function parseDraft(text) {
@@ -1206,16 +1251,54 @@ function explainGuide() {
   showToast(text);
 }
 
+// Reduz a foto (lado maior até 1600 px, JPEG) para enviar rápido mesmo em internet fraca.
+async function imageToJpegBase64(file, maxSide = 1600, quality = 0.85) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  return canvas.toDataURL("image/jpeg", quality).split(",")[1];
+}
+
+function setBusy(kind) {
+  state.busy = kind;
+  render();
+}
+
 async function submitScam(text) {
-  if (!text && !state.scamImg) {
-    showToast("Cole ou escreva a mensagem.");
+  if (!text && !state.scamFile) {
+    showToast("Cole ou escreva a mensagem, ou envie uma foto.");
     return;
   }
+  setBusy("scam");
   try {
-    const result = await apiRequest("/golpes/verificar", {
-      method: "POST",
-      body: { idIdoso: state.idosoId, texto: text, imagem: Boolean(state.scamImg) },
-    });
+    let result;
+    if (state.scamFile) {
+      let imagemBase64;
+      try {
+        imagemBase64 = await imageToJpegBase64(state.scamFile);
+      } catch {
+        setBusy("");
+        showToast("Não consegui abrir essa imagem. Tente outra foto ou print.");
+        return;
+      }
+      result = await apiRequest("/golpes/verificar-imagem", {
+        method: "POST",
+        body: { idIdoso: state.idosoId, texto: text, imagemBase64, tipoImagem: "image/jpeg" },
+      });
+    } else {
+      result = await apiRequest("/golpes/verificar", {
+        method: "POST",
+        body: { idIdoso: state.idosoId, texto: text, imagem: false },
+      });
+    }
+    state.busy = "";
     state.scam = {
       level: result.nivel === "MEDIO" ? "MÉDIO" : result.nivel,
       reason: result.motivo,
@@ -1223,6 +1306,7 @@ async function submitScam(text) {
     };
     go("scamResult");
   } catch (error) {
+    state.busy = "";
     showApiError(error, "Não deu para verificar agora. Enquanto isso, não abra links nem envie dinheiro.");
   }
 }
@@ -1273,18 +1357,17 @@ async function toggleSilent() {
   showToast(ativo ? "Modo sem leitura ligado." : "Modo sem leitura desligado.");
 }
 
-async function connect(apiUrl, idosoId) {
-  if (!apiUrl || !Number.isInteger(idosoId) || idosoId < 1) {
-    showToast("Informe um endereço e um código de idoso válidos.");
+async function connect(apiUrl) {
+  if (!/^https?:\/\/\S+$/i.test(apiUrl)) {
+    showToast("Informe um endereço que comece com http:// ou https://.");
     return;
   }
   state.apiBase = apiUrl;
-  state.idosoId = idosoId;
   writeStorage("netinho-api-url", apiUrl);
-  writeStorage("netinho-idoso-id", String(idosoId));
   const ok = await loadAll();
+  if (!state.token) return;
   if (ok) showToast(`Conectado ao cadastro de ${state.idosoNome}.`);
-  else state.error = "Não consegui carregar o cadastro. Confira o endereço da API e o código do idoso.";
+  else state.error = "Não consegui carregar o cadastro. Confira o endereço da API.";
   render();
 }
 
@@ -1358,15 +1441,27 @@ app.addEventListener("submit", async (event) => {
   const form = new FormData(event.target);
 
   if (event.target.id === "login-form") {
-    const username = String(form.get("username")).trim();
+    const username = String(form.get("username")).trim().toLowerCase();
     const password = String(form.get("password"));
-    if (username !== state.demoUser || password !== state.demoPassword) {
-      showToast("Usuário ou senha incorretos.");
+    if (!username || !password) {
+      showToast("Informe usuário e senha.");
       return;
     }
-    writeStorage("netinho-session", "active");
+    setBusy("login");
+    try {
+      const login = await apiRequest("/auth/login", { method: "POST", body: { usuario: username, senha: password } });
+      startSession(login);
+      state.user = username;
+      writeStorage("netinho-user", username);
+    } catch (error) {
+      setBusy("");
+      if (error instanceof TypeError) showApiError(error, "Não consegui falar com o Netinho agora. Tente de novo daqui a pouco.");
+      else showToast(error.message);
+      return;
+    }
+    setBusy("");
     go("home");
-    showToast(`Bem-vinda, ${state.idosoNome}.`);
+    showToast(`Bem-vinda, ${firstName(state.idosoNome)}.`);
     await loadAll();
     render();
   }
@@ -1376,7 +1471,7 @@ app.addEventListener("submit", async (event) => {
     await submitScam(state.scamText);
   }
   if (event.target.id === "connection-form") {
-    await connect(String(form.get("apiUrl")).trim().replace(/\/+$/, ""), Number(form.get("idosoId")));
+    await connect(String(form.get("apiUrl")).trim().replace(/\/+$/, ""));
   }
 });
 
@@ -1393,7 +1488,13 @@ app.addEventListener("change", (event) => {
   if (event.target.id !== "scam-img") return;
   const file = event.target.files?.[0];
   if (file) {
+    if (!file.type.startsWith("image/")) {
+      showToast("Escolha uma foto ou print.");
+      event.target.value = "";
+      return;
+    }
     clearScamImage();
+    state.scamFile = file;
     state.scamImg = URL.createObjectURL(file);
     render();
   }
@@ -1413,8 +1514,7 @@ async function handleAction(button) {
     case "profile": return go("profile");
     case "settings": return go("settings");
     case "logout":
-      writeStorage("netinho-session", null);
-      return go("login");
+      return endSession("Você saiu da conta.");
     case "listen": return beginListening();
     case "stop-listen": return stopListening();
     case "speak": return speakScreen();

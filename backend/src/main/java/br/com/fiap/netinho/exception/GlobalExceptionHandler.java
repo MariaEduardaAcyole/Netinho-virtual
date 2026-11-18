@@ -22,6 +22,10 @@ public class GlobalExceptionHandler {
     }
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ResponseEntity<Map<String,Object>> naoEncontrado(RecursoNaoEncontradoException e,HttpServletRequest r){return resposta(HttpStatus.NOT_FOUND,"Nao encontrado",e.getMessage(),r);}
+    @ExceptionHandler(NaoAutenticadoException.class)
+    public ResponseEntity<Map<String,Object>> naoAutenticado(NaoAutenticadoException e,HttpServletRequest r){return resposta(HttpStatus.UNAUTHORIZED,"Nao autenticado",e.getMessage(),r);}
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ResponseEntity<Map<String,Object>> acessoNegado(AcessoNegadoException e,HttpServletRequest r){return resposta(HttpStatus.FORBIDDEN,"Proibido",e.getMessage(),r);}
     @ExceptionHandler(ConflitoException.class)
     public ResponseEntity<Map<String,Object>> conflito(ConflitoException e,HttpServletRequest r){return resposta(HttpStatus.CONFLICT,"Conflito",e.getMessage(),r);}
     @ExceptionHandler(RegraNegocioException.class)

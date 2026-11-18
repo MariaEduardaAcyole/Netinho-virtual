@@ -1,5 +1,6 @@
 package br.com.fiap.netinho.controller;
 
+import br.com.fiap.netinho.auth.Sessao;
 import br.com.fiap.netinho.bo.ConsentimentoBO;
 import br.com.fiap.netinho.bo.LembreteBO;
 import br.com.fiap.netinho.model.*;
@@ -32,7 +33,7 @@ public class ConfigController {
     @GetMapping("/lembretes")
     public List<Lembrete> listarLembretes(){return lembreteBO.listar();}
     @GetMapping("/lembretes/{id}")
-    public Lembrete lembrete(@PathVariable Long id){return lembreteBO.buscar(id);}
+    public Lembrete lembrete(@PathVariable Long id){Lembrete l=lembreteBO.buscar(id);Sessao.conferirDono(l.getIdIdoso());return l;}
     @GetMapping("/idosos/{id}/lembretes")
     public List<Lembrete> lembretesIdoso(@PathVariable Long id){return lembreteBO.listarPorIdoso(id);}
     @PostMapping("/lembretes")
@@ -41,7 +42,7 @@ public class ConfigController {
         return ResponseEntity.created(URI.create("/lembretes/"+id)).body(x);
     }
     @PutMapping("/lembretes/{id}")
-    public Lembrete atualizarLembrete(@PathVariable Long id,@RequestBody Lembrete x){lembreteBO.atualizar(id,x);x.setId(id);return x;}
+    public Lembrete atualizarLembrete(@PathVariable Long id,@RequestBody Lembrete x){Sessao.conferirDono(lembreteBO.buscar(id).getIdIdoso());x.setIdIdoso(Sessao.resolver(x.getIdIdoso()));lembreteBO.atualizar(id,x);x.setId(id);return x;}
     @DeleteMapping("/lembretes/{id}")
     public ResponseEntity<Void> excluirLembrete(@PathVariable Long id){lembreteBO.excluir(id);return ResponseEntity.noContent().build();}
 }
