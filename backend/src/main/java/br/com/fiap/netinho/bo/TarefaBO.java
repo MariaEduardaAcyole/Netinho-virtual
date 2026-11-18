@@ -45,8 +45,7 @@ public class TarefaBO {
             List<Guia> ativos=guiaDAO.ativos();
             Guia guia=ativos.stream().filter(g->normalizar(g.getNome()).contains("aposentadoria")||normalizar(g.getAplicativo()).contains("inss")).findFirst()
                     .orElseThrow(()->new RecursoNaoEncontradoException("Guia ativo correspondente nao encontrado."));
-            Tarefa x=new Tarefa();x.setIdIdoso(idIdoso);x.setIdGuia(guia.getId());x.setModo(TipoModoTarefa.ME_ENSINA);x.setPedido(pedido);x.setStatus(StatusTarefa.EM_ANDAMENTO);x.setDataSolicitacao(LocalDateTime.now());
-            x.setId(tarefaDAO.inserir(x));progresso.put(x.getId(),1);return x;
+            return salvarGuia(idIdoso,guia,pedido);
         }
 
         String nome=extrairContato(pedido);
@@ -61,6 +60,18 @@ public class TarefaBO {
         Tarefa x=new Tarefa();x.setIdIdoso(idIdoso);x.setModo(TipoModoTarefa.FAZ_PRA_MIM);x.setPedido(pedido);x.setStatus(StatusTarefa.AGUARDANDO);x.setDataSolicitacao(LocalDateTime.now());x.setId(tarefaDAO.inserir(x));return x;
     }
 
+    /** Inicia uma tarefa ME_ENSINA para o guia escolhido na lista do aplicativo. */
+    public Tarefa iniciarGuia(Long idIdoso,Integer idGuia){
+        idosoDAO.buscarPorId(idIdoso).orElseThrow(()->new RecursoNaoEncontradoException("Idoso nao encontrado."));
+        Guia guia=guiaDAO.buscarPorId(idGuia).orElseThrow(()->new RecursoNaoEncontradoException("Guia nao encontrado."));
+        if(guia.getStatus()!=StatusGuia.ATIVO) throw new RegraNegocioException("Este guia nao esta ativo.");
+        if(passoDAO.listarPorGuia(idGuia).isEmpty()) throw new RegraNegocioException("Este guia ainda nao tem passos.");
+        return salvarGuia(idIdoso,guia,"Quero aprender: "+guia.getNome());
+    }
+    private Tarefa salvarGuia(Long idIdoso,Guia guia,String pedido){
+        Tarefa x=new Tarefa();x.setIdIdoso(idIdoso);x.setIdGuia(guia.getId());x.setModo(TipoModoTarefa.ME_ENSINA);x.setPedido(pedido);x.setStatus(StatusTarefa.EM_ANDAMENTO);x.setDataSolicitacao(LocalDateTime.now());
+        x.setId(tarefaDAO.inserir(x));progresso.put(x.getId(),1);return x;
+    }
     private Tarefa salvarRecusada(Idoso idoso,String pedido,TipoModoTarefa modo,Integer idGuia,String motivo){
         Tarefa x=new Tarefa();x.setIdIdoso(idoso.getId());x.setIdGuia(idGuia);x.setModo(modo);x.setPedido(pedido);x.setStatus(StatusTarefa.RECUSADA);x.setDataSolicitacao(LocalDateTime.now());x.setDataConclusao(LocalDateTime.now());x.setId(tarefaDAO.inserir(x));return x;
     }

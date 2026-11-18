@@ -20,7 +20,7 @@ public class TarefaGolpeController {
     private final GolpeBO golpeBO;
     public TarefaGolpeController(TarefaBO tarefaBO,TarefaDAO tarefaDAO,GolpeBO golpeBO){this.tarefaBO=tarefaBO;this.tarefaDAO=tarefaDAO;this.golpeBO=golpeBO;}
 
-    @PostMapping("/tarefas") public ResponseEntity<Tarefa> criar(@RequestBody TarefaRequest r){Tarefa x=tarefaBO.criar(r.idIdoso(),r.pedido());return ResponseEntity.created(URI.create("/tarefas/"+x.getId())).body(x);}
+    @PostMapping("/tarefas") public ResponseEntity<Tarefa> criar(@RequestBody TarefaRequest r){Tarefa x=r.idGuia()==null?tarefaBO.criar(r.idIdoso(),r.pedido()):tarefaBO.iniciarGuia(r.idIdoso(),r.idGuia());return ResponseEntity.created(URI.create("/tarefas/"+x.getId())).body(x);}
     @GetMapping("/tarefas/{id}") public Tarefa tarefa(@PathVariable Long id){return tarefaDAO.buscarPorId(id).orElseThrow(()->new br.com.fiap.netinho.exception.RecursoNaoEncontradoException("Tarefa nao encontrada."));}
     @GetMapping("/idosos/{id}/tarefas") public List<Tarefa> tarefas(@PathVariable Long id){return tarefaDAO.listarPorIdoso(id);}
     @PutMapping("/tarefas/{id}/confirmar") public Map<String,Object> confirmar(@PathVariable Long id,@RequestBody ConfirmacaoRequest r){return tarefaBO.confirmar(id,r.resposta());}

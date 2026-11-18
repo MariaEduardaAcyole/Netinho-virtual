@@ -51,6 +51,25 @@ class TarefaBOTest {
         when(tarefaDAO.buscarPorId(1L)).thenReturn(Optional.of(t));
         assertThrows(RegraNegocioException.class,()->bo().desfazer(1L));
     }
+    @Test void iniciaGuiaEscolhidoNoPrimeiroPasso(){
+        Idoso i=new Idoso();i.setId(1L);
+        Guia g=new Guia();g.setId(3);g.setNome("Agendar consulta");g.setStatus(StatusGuia.ATIVO);
+        Passo p=new Passo();p.setIdGuia(3);p.setOrdem(1);
+        when(idosoDAO.buscarPorId(1L)).thenReturn(Optional.of(i));
+        when(guiaDAO.buscarPorId(3)).thenReturn(Optional.of(g));
+        when(passoDAO.listarPorGuia(3)).thenReturn(List.of(p));
+        when(tarefaDAO.inserir(any())).thenReturn(50L);
+        Tarefa t=bo().iniciarGuia(1L,3);
+        assertEquals(Integer.valueOf(3),t.getIdGuia());assertEquals(TipoModoTarefa.ME_ENSINA,t.getModo());assertEquals(StatusTarefa.EM_ANDAMENTO,t.getStatus());
+    }
+    @Test void naoIniciaGuiaInativo(){
+        Idoso i=new Idoso();i.setId(1L);
+        Guia g=new Guia();g.setId(5);g.setStatus(StatusGuia.INATIVO);
+        when(idosoDAO.buscarPorId(1L)).thenReturn(Optional.of(i));
+        when(guiaDAO.buscarPorId(5)).thenReturn(Optional.of(g));
+        assertThrows(RegraNegocioException.class,()->bo().iniciarGuia(1L,5));
+        verify(tarefaDAO,never()).inserir(any());
+    }
     @Test void guiaNuncaPulaPassoEExigeConcluido(){
         assertThrows(RegraNegocioException.class,()->bo().avancar(1L,false));
         verify(tarefaDAO,never()).atualizarStatus(anyLong(),any(),any());

@@ -32,7 +32,7 @@ API não implementa autenticação.
 
 | Método | Rota | Corpo |
 |---|---|---|
-| POST | `/tarefas` | `{"idIdoso":1,"pedido":"..."}` |
+| POST | `/tarefas` | `{"idIdoso":1,"pedido":"..."}` ou `{"idIdoso":1,"idGuia":3}` para abrir um guia escolhido |
 | GET | `/tarefas/{id}` | - |
 | GET | `/idosos/{id}/tarefas` | - |
 | PUT | `/tarefas/{id}/confirmar` | `{"resposta":"SIM"}` |

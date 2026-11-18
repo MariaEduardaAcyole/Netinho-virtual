@@ -1,90 +1,133 @@
 // Controla os estados/telas do frontend, chama a API e gerencia entrada e leitura por voz.
 const app = document.querySelector("#app");
+const overlay = document.querySelector("#overlay");
 const toastElement = document.querySelector("#toast");
+
+/* ---------------------------------------------------------------- Ícones */
 
 const iconPaths = {
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
   speaker: '<path d="M11 5 6 9H3v6h3l5 4V5ZM15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/>',
-  smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
-  settings: '<circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 2Z" transform="translate(-1 -1)"/>',
+  sliders: '<path d="M4 6h9M19 6h1M4 12h1M11 12h9M4 18h9M19 18h1"/><circle cx="16" cy="6" r="2.5"/><circle cx="8" cy="12" r="2.5"/><circle cx="16" cy="18" r="2.5"/>',
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5ZM4 17a2.5 2.5 0 0 1 2.5-2.5H20M8 7h8"/>',
   message: '<path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.8-3A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/>',
   shield: '<path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="M12 8v4m0 4h.01"/>',
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm6-7.8a4 4 0 0 1 0 7.6M20 21v-2a4 4 0 0 0-3-3.9"/>',
   mic: '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/>',
   phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.8L7.1 10.4a16 16 0 0 0 6 6l1.9-1.9a2 2 0 0 1 1.8-.6l3 .5a2 2 0 0 1 2.2 2.5Z"/>',
-  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
-  undo: '<path d="M3 7v6h6M4 13a8 8 0 1 0 2-5.3L3 10"/>',
-  celebrate: '<path d="m12 3 2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z"/><path d="m19 14 1.2 2.8L23 18l-2.8 1.2L19 22l-1.2-2.8L15 18l2.8-1.2L19 14ZM5 2l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/>',
-  stop: '<path d="M7 3h10l4 4v10l-4 4H7l-4-4V7l4-4Z"/><path d="M12 8v5m0 3h.01"/>',
   home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1V10Z"/>',
   close: '<path d="m18 6-12 12M6 6l12 12"/>',
   arrow: '<path d="M5 12h14m-7-7 7 7-7 7"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
   question: '<circle cx="12" cy="12" r="10"/><path d="M9.6 9a2.5 2.5 0 1 1 4.6 1.4c-.9 1.1-2.2 1.4-2.2 3.1m0 3h.01"/>',
-  cursor: '<path d="m5 3 14 10-7 1 3 6-3 1-3-6-4 5V3Z"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/>',
+  alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3ZM12 9v4m0 4h.01"/>',
 };
 
-function icon(name, className = "svg-icon") {
-  return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${iconPaths[name]}</svg>`;
+function icon(name, strokeWidth = 2.2) {
+  return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${iconPaths[name]}</svg>`;
 }
 
-const state = {
-  screen: localStorage.getItem("netinho-session") === "active" ? "home" : "login",
-  authenticated: localStorage.getItem("netinho-session") === "active",
-  demoUser: "netinho",
-  demoPassword: "123456",
-  profileName: "Maria Helena",
-  taskText: "",
-  taskDraft: null,
-  guideStep: 0,
-  guideTaskId: null,
-  guideStepData: null,
-  scamText: "",
-  scamResult: null,
-  silentMode: false,
-  apiBase: localStorage.getItem("netinho-api-url") || "http://localhost:8080",
-  idosoId: Number(localStorage.getItem("netinho-idoso-id") || "1"),
-  idosoNome: "Maria Helena",
-  apiConnected: false,
-  supportContacts: [],
+/* ---------------------------------------------------------------- Dados fixos */
+
+const SCREEN_LABELS = {
+  make: "Faz pra mim", confirm: "Faz pra mim", sent: "Faz pra mim",
+  guideList: "Me ensina", guide: "Me ensina", guideDone: "Me ensina",
+  scam: "É golpe?", scamResult: "É golpe?",
+  help: "Pedir ajuda", emergency: "Emergência",
+  profile: "Meu perfil", settings: "Ajustes",
+  reminders: "Lembretes", history: "Histórico",
 };
 
-const guideSteps = [
-  {
-    instruction: "Abra o aplicativo gov.br no celular.",
-    highlight: "Aplicativo gov.br",
-    alternative: "Procure o desenho azul escrito gov.br na tela do celular.",
-  },
-  {
-    instruction: "Entre na sua conta gov.br.",
-    highlight: "Entrar com gov.br",
-    alternative: "Toque no botão para entrar e informe seus dados com cuidado.",
-  },
-  {
-    instruction: "Escolha o serviço Pedir aposentadoria.",
-    highlight: "Pedir aposentadoria",
-    alternative: "Na lista de serviços, procure o pedido de aposentadoria.",
-  },
-  {
-    instruction: "Confira seus dados e continue.",
-    highlight: "Continuar",
-    alternative: "Leia ou ouça os dados. Se estiverem certos, toque em continuar.",
-  },
-  {
-    instruction: "Responda às perguntas do formulário.",
-    highlight: "Próxima pergunta",
-    alternative: "Responda uma pergunta de cada vez. Peça ajuda se precisar.",
-  },
-  {
-    instruction: "Revise o pedido e toque em Enviar.",
-    highlight: "Enviar pedido",
-    alternative: "Confira tudo com calma. Só envie quando estiver pronta.",
-  },
-];
+const HISTORY_DOTS = {
+  make: "#2d5be6", scam: "#ef6a1a", guide: "#ffc227", help: "#0b8250", emergency: "#d3261a", reminder: "#e8106e",
+};
+
+// O backend só aceita desfazer até 5 s depois do envio (TarefaBO.desfazer).
+const UNDO_SECONDS = 5;
+
+const CONTACT_PALETTE = [["#dce5ff", "#2d5be6"], ["#ffe0ee", "#e8106e"]];
+const SAMPLE_PORTRAITS = { rafael: "assets/rafael.svg", beatriz: "assets/beatriz.svg" };
+
+/* ---------------------------------------------------------------- Estado */
+
+function readStorage(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    /* armazenamento indisponível: segue só em memória */
+  }
+}
+
+function readHistory() {
+  try {
+    const list = JSON.parse(readStorage("netinho-history", "[]"));
+    return Array.isArray(list) ? list.filter((item) => item?.type === "emergency") : [];
+  } catch {
+    return [];
+  }
+}
+
+const loggedIn = readStorage("netinho-session", "") === "active";
+
+const state = {
+  screen: loggedIn ? "home" : "login",
+  demoUser: "netinho",
+  demoPassword: "123456",
+  apiBase: readStorage("netinho-api-url", "http://localhost:8080"),
+  idosoId: Number(readStorage("netinho-idoso-id", "1")),
+  idosoNome: "Maria Helena",
+  silentMode: false,
+  apiConnected: null, // null = ainda não testado
+  supportContacts: [],
+  reminders: [],
+  history: null, // null = carregando
+  historyError: false,
+  localHistory: readHistory(), // só emergências: a API não guarda esse registro
+
+  taskText: "",
+  draft: null,
+  undoLeft: 0,
+
+  guides: null, // null = carregando; [] = nenhum
+  guidesError: false,
+  guide: null,
+  guideStep: 0,
+  guideTaskId: null,
+  apiStep: null,
+
+  scamText: "",
+  scamImg: "",
+  scam: null,
+
+  hold: "idle", // idle | holding | done
+
+  listening: false,
+  heard: "",
+  error: "",
+};
+
+let lastRenderedScreen = null;
+let undoTimer = null;
+let holdTimer = null;
+let recognition = null;
+
+/* ---------------------------------------------------------------- Utilidades */
 
 const escapeHtml = (value) =>
-  String(value).replace(/[&<>"']/g, (character) => ({
+  String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -96,524 +139,237 @@ function showToast(message) {
   toastElement.textContent = message;
   toastElement.classList.add("visible");
   window.clearTimeout(showToast.timeoutId);
-  showToast.timeoutId = window.setTimeout(
-    () => toastElement.classList.remove("visible"),
-    2800,
-  );
+  showToast.timeoutId = window.setTimeout(() => toastElement.classList.remove("visible"), 3200);
 }
 
+function firstName(name) {
+  return String(name || "").trim().split(/\s+/)[0] || "";
+}
+
+function hasNav() {
+  return state.screen !== "login" && state.screen !== "home";
+}
+
+// Guarda no aparelho só o que a API não registra (pedido de emergência).
+function logLocalHistory(type, text) {
+  state.localHistory = [{ type, text, at: new Date().toISOString() }, ...state.localHistory].slice(0, 30);
+  writeStorage("netinho-history", JSON.stringify(state.localHistory));
+}
+
+function dayLabel(date) {
+  const today = new Date();
+  const start = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((start(date) - start(today)) / 86400000);
+  if (diff === 0) return "Hoje";
+  if (diff === 1) return "Amanhã";
+  if (diff === -1) return "Ontem";
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function timeLabel(date) {
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/* ---------------------------------------------------------------- API */
+
 async function apiRequest(path, { method = "GET", body } = {}) {
-  const response = await fetch(`${state.apiBase.replace(/\/+$/, "")}${path}`, {
-    method,
-    headers: body === undefined ? { Accept: "application/json" } : {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(`${state.apiBase.replace(/\/+$/, "")}${path}`, {
+      method,
+      headers: body === undefined ? { Accept: "application/json" } : {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    state.apiConnected = false;
+    throw error;
+  }
   state.apiConnected = true;
-  const data = response.status === 204 ? null : await response.json();
+  const text = response.status === 204 ? "" : await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
   if (!response.ok) {
     throw new Error(data?.mensagem || `A API respondeu com erro ${response.status}.`);
   }
   return data;
 }
 
-function showApiError(error) {
-  if (error instanceof TypeError) state.apiConnected = false;
-  showToast(`Não consegui falar com a API: ${error.message}`);
+function friendlyError(error, offlineMessage) {
+  if (error instanceof TypeError) return offlineMessage;
+  return `A API respondeu: ${error.message}`;
+}
+
+// Mostra o painel "Não consegui conectar." com uma mensagem adequada à ação que falhou.
+function showApiError(error, offlineMessage = "Não consegui falar com a API. Verifique se o backend está ligado.") {
+  state.error = friendlyError(error, offlineMessage);
+  render();
 }
 
 async function loadElder() {
-  try {
-    const elder = await apiRequest(`/idosos/${state.idosoId}`);
-    state.idosoNome = elder.nome || state.idosoNome;
-    state.profileName = elder.nome || state.profileName;
-    state.silentMode = Boolean(elder.semLeitura);
-  } catch {
-    state.apiConnected = false;
-  }
+  const elder = await apiRequest(`/idosos/${state.idosoId}`);
+  state.idosoNome = elder.nome || state.idosoNome;
+  state.silentMode = Boolean(elder.semLeitura);
 }
 
 async function loadSupportNetwork() {
   const links = await apiRequest(`/idosos/${state.idosoId}/rede-apoio`);
-  state.supportContacts = await Promise.all(links.map(async (link) => {
+  const contacts = await Promise.all(links.map(async (link, index) => {
     const familiar = await apiRequest(`/familiares/${link.idFamiliar}`);
+    const nome = familiar.nome || "Contato";
+    const key = firstName(nome).toLowerCase();
     return {
-      nome: familiar.nome,
-      parentesco: link.parentesco,
-      ordem: link.ordemContato ?? 0,
+      nome,
+      parentesco: link.parentesco || "rede de apoio",
+      ordem: link.ordemContato ?? index + 1,
+      photo: SAMPLE_PORTRAITS[key] || "",
+      bg: CONTACT_PALETTE[index % 2][0],
+      ink: CONTACT_PALETTE[index % 2][1],
     };
   }));
+  state.supportContacts = contacts.sort((a, b) => a.ordem - b.ordem);
 }
 
-function speak(text) {
+const REMINDER_TYPES = { REMEDIO: "Remédio", CONSULTA: "Consulta", VACINA: "Vacina" };
+
+async function loadReminders() {
+  const list = await apiRequest(`/idosos/${state.idosoId}/lembretes`);
+  state.reminders = list
+    .filter((item) => item.status !== "CANCELADO")
+    .map((item) => {
+      const date = new Date(item.dataAgendamento);
+      return {
+        raw: item,
+        id: item.id,
+        date,
+        quando: dayLabel(date),
+        hora: timeLabel(date),
+        titulo: item.descricao,
+        tipo: REMINDER_TYPES[item.tipo] || "Lembrete",
+        done: item.status === "CUMPRIDO" || Boolean(item.dataCumprimento),
+      };
+    })
+    .sort((a, b) => a.date - b.date);
+}
+
+async function loadGuides() {
+  const guides = await apiRequest("/guias");
+  const active = (guides || []).filter((guide) => guide.status === "ATIVO");
+  const withSteps = await Promise.all(active.map(async (guide) => {
+    const steps = await apiRequest(`/guias/${guide.id}/passos`);
+    return {
+      id: guide.id,
+      title: guide.nome,
+      app: guide.aplicativo || "",
+      steps: (steps || []).sort((a, b) => a.ordem - b.ordem),
+    };
+  }));
+  state.guides = withSteps.filter((guide) => guide.steps.length > 0);
+}
+
+const TASK_STATUS_TEXT = {
+  FAZ_PRA_MIM: {
+    CONCLUIDA: "Pedido feito",
+    AGUARDANDO: "Pedido esperando confirmação",
+    CANCELADA: "Pedido cancelado",
+    RECUSADA: "Pedido recusado por segurança",
+    EM_ANDAMENTO: "Pedido em andamento",
+  },
+  ME_ENSINA: {
+    CONCLUIDA: "Guia concluído",
+    EM_ANDAMENTO: "Guia começado",
+    CANCELADA: "Guia cancelado",
+    RECUSADA: "Guia recusado",
+    AGUARDANDO: "Guia começado",
+  },
+};
+const HELP_STATUS_TEXT = {
+  SOLICITADO: "Pedido de ajuda registrado",
+  EM_ANDAMENTO: "Ajuda em andamento",
+  CONCLUIDO: "Ajuda concluída",
+  CANCELADO: "Pedido de ajuda cancelado",
+};
+
+function shorten(text, max = 60) {
+  const value = String(text || "").trim();
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function guideNameFromTask(task) {
+  const guide = state.guides?.find((item) => item.id === task.idGuia);
+  return guide ? guide.title : String(task.pedido || "").replace(/^Quero aprender:\s*/i, "");
+}
+
+// Junta tarefas, alertas, atendimentos e lembretes cumpridos em uma linha do tempo.
+async function loadHistory() {
+  const [data, reminders] = await Promise.all([
+    apiRequest(`/idosos/${state.idosoId}/historico`),
+    apiRequest(`/idosos/${state.idosoId}/lembretes`).catch(() => []),
+  ]);
+  const items = [];
+  (data?.tarefas || []).forEach((task) => {
+    const guide = task.modo === "ME_ENSINA";
+    const label = TASK_STATUS_TEXT[task.modo]?.[task.status] || "Pedido";
+    items.push({
+      type: guide ? "guide" : "make",
+      text: `${label}: ${shorten(guide ? guideNameFromTask(task) : task.pedido)}`,
+      at: task.dataConclusao || task.dataSolicitacao,
+    });
+  });
+  (data?.alertas || []).forEach((alert) => {
+    items.push({
+      type: "scam",
+      text: `Mensagem verificada: risco ${alert.risco === "MEDIO" ? "MÉDIO" : alert.risco}`,
+      at: alert.dataRegistro,
+    });
+  });
+  (data?.atendimentos || []).forEach((help) => {
+    items.push({
+      type: "help",
+      text: HELP_STATUS_TEXT[help.status] || "Pedido de ajuda",
+      at: help.dataFim || help.dataInicio || help.dataSolicitacao,
+    });
+  });
+  (reminders || []).filter((item) => item.dataCumprimento).forEach((item) => {
+    items.push({ type: "reminder", text: `Lembrete feito: ${shorten(item.descricao)}`, at: item.dataCumprimento });
+  });
+  state.history = [...items, ...state.localHistory]
+    .filter((item) => item.at)
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, 40);
+}
+
+async function loadAll() {
+  const results = await Promise.allSettled([loadElder(), loadSupportNetwork(), loadReminders()]);
+  return results[0].status === "fulfilled";
+}
+
+/* ---------------------------------------------------------------- Voz */
+
+function speak(text, queue = false) {
   if (!("speechSynthesis" in window)) {
     showToast("A leitura em voz alta não está disponível neste navegador.");
     return;
   }
-  window.speechSynthesis.cancel();
+  if (!queue) window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "pt-BR";
   utterance.rate = 0.88;
   window.speechSynthesis.speak(utterance);
 }
 
-function topbar() {
-  return `
-    <div class="topbar">
-      <button class="icon-button" data-action="home" aria-label="Voltar ao início">${icon("back")}</button>
-      <button class="icon-button" data-action="speak" aria-label="Ouvir esta tela">${icon("speaker")}</button>
-    </div>`;
-}
-
-function faceLine(text) {
-  return `
-    <div class="face-line">
-      <span class="face">${icon("smile")}</span>
-      <h1>${escapeHtml(text)}</h1>
-    </div>`;
-}
-
-function renderHome() {
-  return `
-    <section class="home">
-      <header class="home-header">
-        <div class="header-row">
-          <span class="brand" aria-label="Netinho Virtual">N</span>
-          <div class="header-actions">
-            <button class="header-icon" data-action="profile" aria-label="Meu perfil">${icon("person")}</button>
-            <button class="header-icon" data-action="settings" aria-label="Configurações">${icon("settings")}</button>
-          </div>
-        </div>
-        <h1>Oi, ${escapeHtml(state.idosoNome)}!</h1>
-        <p>Aperte o botão rosa e fale.</p>
-      </header>
-      <nav class="function-grid" aria-label="O que você quer fazer?">
-        <button class="function-card card-teach" data-action="guide">
-          <span class="symbol">${icon("book")}</span><strong>Me ensina</strong>
-        </button>
-        <button class="function-card card-do" data-action="make">
-          <span class="symbol">${icon("message")}</span><strong>Faz pra mim</strong>
-        </button>
-        <button class="function-card card-scam" data-action="scam">
-          <span class="symbol">${icon("shield")}</span><strong>É golpe?</strong>
-        </button>
-        <button class="function-card card-help" data-action="help">
-          <span class="symbol">${icon("users")}</span><strong>Pedir ajuda</strong>
-        </button>
-      </nav>
-      <div class="home-actions">
-        <button class="mic-button" data-action="listen" aria-label="Falar com o Netinho">${icon("mic")}</button>
-        <button class="emergency-button" data-action="emergency">${icon("phone")} &nbsp; Emergência</button>
-      </div>
-      <p class="mode-note">${state.apiConnected ? "Conectado à API Netinho." : "API desconectada. Inicie o backend para usar os recursos."}</p>
-    </section>`;
-}
-
-function phonePreview({ contact, content, status, assistantText, highlighted = false, sent = false }) {
-  return `
-    <div class="phone-preview">
-      <div class="phone-preview-heading">
-        <strong>${icon("phone", "inline-icon")} Prévia do celular</strong>
-        <span>Demonstração</span>
-      </div>
-      <div class="mock-phone" aria-label="Prévia ilustrativa de uma conversa no celular">
-        <div class="mock-statusbar"><span>9:41</span><span>● ● ▰</span></div>
-        <div class="mock-appbar">
-          <span class="mock-avatar">${icon("person")}</span>
-          <span class="mock-app-title"><strong>Mensagens</strong><small>${escapeHtml(contact)}</small></span>
-          ${icon("phone", "mock-phone-action")}
-        </div>
-        <div class="mock-conversation">
-          <span class="mock-date">Hoje</span>
-          <div class="mock-bubble received">Oi, mãe! Tudo bem?</div>
-          <div class="mock-bubble outgoing ${sent ? "sent" : ""}">
-            <span data-preview-message>${escapeHtml(content || "Sua mensagem vai aparecer aqui.")}</span>
-            ${sent ? `<small>${icon("check", "inline-icon")} Enviado</small>` : ""}
-          </div>
-        </div>
-        <div class="mock-compose ${highlighted ? "highlighted" : ""}">
-          <span>Mensagem</span>
-          <span class="mock-send">${icon("arrow")}</span>
-          ${highlighted ? `<span class="touch-pointer">${icon("cursor")}</span>` : ""}
-        </div>
-      </div>
-      <div class="automation-status">
-        <span class="automation-face">${icon("smile")}</span>
-        <span>${escapeHtml(assistantText)}</span>
-      </div>
-      <p class="demo-note">${escapeHtml(status)}</p>
-    </div>`;
-}
-
-function renderMake() {
-  return `
-    <section class="screen blue">
-      ${topbar()}
-      ${faceLine("O que você quer que eu faça?")}
-      <div class="screen-content">
-        ${phonePreview({
-          contact: "Rafael",
-          content: state.taskText,
-          status: "Prévia ilustrativa; ainda não mexi no seu celular.",
-          assistantText: "Vou preparar tudo e pedir sua confirmação.",
-        })}
-        <div class="panel">
-          <form id="task-form">
-            <label for="task-text">Pode escrever ou falar</label>
-            <textarea id="task-text" name="taskText" placeholder="Ex.: Manda mensagem pro Rafael dizendo que chego às 3" required>${escapeHtml(state.taskText)}</textarea>
-            <p class="hint">Eu vou mostrar tudo para você confirmar antes.</p>
-            <div class="actions">
-              <button class="action-no" type="button" data-action="home">Voltar</button>
-              <button class="action-yes" type="submit">Continuar →</button>
-            </div>
-          </form>
-          <div class="actions single">
-            <button class="action-outline" type="button" data-action="listen">${icon("mic", "inline-icon")} Falar pedido</button>
-          </div>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderConfirm() {
-  const draft = state.taskDraft;
-  return `
-    <section class="screen blue">
-      ${topbar()}
-      ${faceLine(`Mando para ${draft.contact}?`)}
-      <div class="screen-content">
-        ${phonePreview({
-          contact: draft.contact,
-          content: draft.content,
-          status: "O destaque mostra onde o Netinho tocaria depois do seu Sim.",
-          assistantText: 'Vou tocar em "Enviar" só depois da sua confirmação.',
-          highlighted: true,
-        })}
-      </div>
-      <div class="panel">
-        <p>Posso enviar?</p>
-        <div class="actions">
-          <button class="action-no" data-action="cancel-task">${icon("close", "inline-icon")} &nbsp; Não</button>
-          <button class="action-yes" data-action="confirm-task">${icon("check", "inline-icon")} &nbsp; Sim</button>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderSent() {
-  const undoLeft = Math.max(0, Math.ceil((state.undoUntil - Date.now()) / 1000));
-  return `
-    <section class="screen green">
-      ${topbar()}
-      ${faceLine(`Pronto! O ${state.taskDraft.contact} já recebeu.`)}
-      <div class="screen-content">
-        ${phonePreview({
-          contact: state.taskDraft.contact,
-          content: state.taskDraft.content,
-          status: "Simulação visual: nenhuma mensagem real foi enviada.",
-          assistantText: "No celular demonstrativo, a mensagem aparece como enviada.",
-          sent: true,
-        })}
-      </div>
-      <div class="panel">
-        <button class="action-outline" data-action="undo" ${undoLeft === 0 ? "disabled" : ""}>${icon("undo", "inline-icon")} &nbsp; Desfazer ${undoLeft > 0 ? `(${undoLeft})` : ""}</button>
-        <div class="actions">
-          <button class="action-no" data-action="home">${icon("home", "inline-icon")} &nbsp; Início</button>
-          <button class="action-blue" data-action="make">${icon("mic", "inline-icon")} &nbsp; Falar</button>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderGuide() {
-  const step = state.guideStepData;
-  if (!step) {
-    return `<section class="screen yellow">${topbar()}${faceLine("Carregando seu guia.")}<div class="screen-content"><div class="panel">Estou buscando o próximo passo na API.</div></div></section>`;
-  }
-  const instruction = step.txPasInstrucao;
-  const highlight = step.nmPasElemento;
-  return `
-    <section class="screen yellow">
-      ${topbar()}
-      ${faceLine("Aperte onde está brilhando.")}
-      <div class="screen-content">
-        <span class="hero-symbol">${icon("book")}</span>
-        <div class="panel">
-          <p class="step-count">Orientação recebida da API</p>
-          <div class="progress" aria-label="Progresso do guia">
-            ${guideSteps.map((_, index) => `<span class="${index < state.guideStep ? "done" : ""}"></span>`).join("")}
-          </div>
-          <p>${escapeHtml(instruction)}</p>
-          <p class="hint">Toque no seu celular: <strong>${escapeHtml(highlight)}</strong></p>
-          <div class="actions">
-            <button class="action-no" data-action="explain-guide">${icon("question", "inline-icon")} &nbsp; Outra explicação</button>
-            <button class="action-yes" data-action="advance-guide">${icon("check", "inline-icon")} &nbsp; Consegui</button>
-          </div>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderGuideDone() {
-  return `
-    <section class="screen yellow">
-      ${topbar()}
-      ${faceLine("Você conseguiu! Fez tudo sozinha.")}
-      <div class="screen-content">
-        <span class="hero-symbol celebration-icon">${icon("celebrate")}</span>
-        <div class="message-card">Você terminou o guia de aposentadoria.</div>
-        <p>Este protótipo não envia um pedido real ao gov.br.</p>
-      </div>
-      <div class="panel">
-        <button class="action-yes" data-action="home">⌂ &nbsp; Início</button>
-      </div>
-    </section>`;
-}
-
-function renderScam() {
-  return `
-    <section class="screen orange">
-      ${topbar()}
-      ${faceLine("Vamos olhar juntos.")}
-      <div class="screen-content">
-        <span class="hero-symbol">${icon("shield")}</span>
-        <div class="panel">
-          <form id="scam-form">
-            <label for="scam-text">Cole ou escreva a mensagem</label>
-            <textarea id="scam-text" name="scamText" placeholder="Ex.: Mãe, troquei de número. Me manda um Pix agora!" required>${escapeHtml(state.scamText)}</textarea>
-            <p class="hint">Não abra links nem envie dinheiro enquanto verificamos.</p>
-            <div class="actions">
-              <button class="action-no" type="button" data-action="home">Voltar</button>
-              <button class="action-yes" type="submit">Verificar</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderScamResult() {
-  const result = state.scamResult;
-  const badgeClass = result.level === "ALTO" ? "" : result.level === "MÉDIO" ? "medium" : "low";
-  return `
-    <section class="screen ${result.level === "ALTO" ? "red" : "orange"}">
-      ${topbar()}
-      ${faceLine(result.level === "ALTO" ? "Não aperte! Pode ser golpe." : "Aqui está o que encontrei.")}
-      <div class="screen-content">
-        <span class="hero-symbol">${icon(result.level === "ALTO" ? "stop" : "shield")}</span>
-        <div class="panel">
-          <span class="result-badge ${badgeClass}">Risco ${escapeHtml(result.level)}</span>
-          <p><strong>Por quê?</strong> ${escapeHtml(result.reason)}</p>
-          <p><strong>O que fazer?</strong> ${escapeHtml(result.advice)}</p>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="actions">
-          <button class="action-no" data-action="scam">Ver outra</button>
-          <button class="action-yes" data-action="home">Entendi ${icon("check", "inline-icon")}</button>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderHelp() {
-  const contacts = state.supportContacts.length
-    ? state.supportContacts.map((contact, index) => `
-        <div class="contact-row"><span class="contact-avatar ${index % 2 ? "beatriz" : "rafael"}">${icon("person")}</span>
-          <span><strong>${escapeHtml(contact.nome)}</strong><br>${escapeHtml(contact.parentesco || "rede de apoio")} · ${contact.ordem}º contato</span></div>`).join("")
-    : `<p class="hint">Os contatos da rede de apoio aparecerão aqui.</p>`;
-  return `
-    <section class="screen green">
-      ${topbar()}
-      ${faceLine("Quem você quer chamar?")}
-      <div class="screen-content">
-        <span class="hero-symbol">${icon("users")}</span>
-        <div class="panel">
-          ${contacts}
-          <p>Vou registrar seu pedido de ajuda pela API.</p>
-          <div class="actions">
-            <button class="action-no" data-action="home">Agora não</button>
-            <button class="action-yes" data-action="notify-family">Pedir ajuda</button>
-          </div>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderEmergency() {
-  const contacts = state.supportContacts.length
-    ? state.supportContacts.map((contact, index) => `
-        <div class="contact-row"><span class="contact-avatar ${index % 2 ? "beatriz" : "rafael"}">${icon("person")}</span>
-          <span>${escapeHtml(contact.nome)} · ${escapeHtml(contact.parentesco || "contato")} · ${contact.ordem}º</span></div>`).join("")
-    : `<p class="hint">Os contatos de emergência serão carregados da rede de apoio.</p>`;
-  return `
-    <section class="screen red">
-      ${topbar()}
-      ${faceLine("Segure o botão para pedir ajuda.")}
-      <div class="screen-content">
-        <span class="hero-symbol">${icon("phone")}</span>
-        <div class="panel">
-          <p><strong>Contatos de confiança</strong></p>
-          ${contacts}
-          <div class="actions single">
-            <button id="emergency-hold" class="action-no">Segure por 2 segundos</button>
-            <button class="action-dark" data-action="sam-u">Ligar 192 · SAMU</button>
-          </div>
-          <p class="hint">O pedido é registrado na API. A ligação para 192 não é iniciada automaticamente.</p>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderLogin() {
-  return `
-    <section class="login-screen">
-      <div class="login-brand">
-        <span class="brand login-brand-mark" aria-hidden="true">N</span>
-        <p>Netinho Virtual</p>
-      </div>
-      <div class="login-card">
-        <h1>Entrar</h1>
-        <p class="login-subtitle">Acesse o protótipo do assistente digital.</p>
-        <form id="login-form">
-          <label for="login-user">Usuário</label>
-          <input id="login-user" name="username" type="text" autocomplete="username" value="${escapeHtml(state.demoUser)}" required>
-          <label for="login-password">Senha</label>
-          <input id="login-password" name="password" type="password" autocomplete="current-password" value="${escapeHtml(state.demoPassword)}" required>
-          <div class="demo-credentials" aria-label="Dados de demonstração">
-            <strong>Acesso de demonstração</strong>
-            <span>Usuário: <b>${escapeHtml(state.demoUser)}</b></span>
-            <span>Senha: <b>${escapeHtml(state.demoPassword)}</b></span>
-          </div>
-          <button class="action-blue login-button" type="submit">Entrar</button>
-        </form>
-      </div>
-      <p class="login-warning">Demonstração local. Este login não representa autenticação segura do backend.</p>
-    </section>`;
-}
-
-function renderProfile() {
-  return `
-    <section class="screen profile-screen">
-      ${topbar()}
-      ${faceLine("Meu perfil")}
-      <div class="screen-content">
-        <div class="panel profile-card">
-          <div class="profile-avatar" aria-hidden="true">${icon("person")}</div>
-          <h2>${escapeHtml(state.profileName)}</h2>
-          <p class="profile-username">Usuário: <strong>${escapeHtml(state.demoUser)}</strong></p>
-
-          <dl class="profile-details">
-            <div>
-              <dt>Cadastro</dt>
-              <dd>Idoso nº ${escapeHtml(state.idosoId)}</dd>
-            </div>
-            <div>
-              <dt>API</dt>
-              <dd>${escapeHtml(state.apiBase)}</dd>
-            </div>
-            <div>
-              <dt>Conexão</dt>
-              <dd>${state.apiConnected ? "Conectada" : "Desconectada"}</dd>
-            </div>
-            <div>
-              <dt>Modo sem leitura</dt>
-              <dd>${state.silentMode ? "Ativado" : "Desativado"}</dd>
-            </div>
-          </dl>
-
-          <div class="actions single">
-            <button class="action-blue" data-action="settings">${icon("settings", "inline-icon")} Configurações</button>
-            <button class="action-no" data-action="logout">Sair da conta</button>
-          </div>
-        </div>
-      </div>
-    </section>`;
-}
-
-function renderSettings() {
-  return `
-    <section class="screen">
-      ${topbar()}
-      ${faceLine("Configurações")}
-      <div class="screen-content">
-        <div class="panel">
-          <form id="connection-form">
-            <label for="api-url">Endereço da API</label>
-            <input id="api-url" name="apiUrl" type="text" value="${escapeHtml(state.apiBase)}" required>
-            <label for="idoso-id">Código do idoso</label>
-            <input id="idoso-id" name="idosoId" type="text" inputmode="numeric" value="${escapeHtml(state.idosoId)}" required>
-            <div class="actions single">
-              <button class="action-blue" type="submit">Conectar</button>
-            </div>
-          </form>
-          <label class="setting-row" for="silent-mode">
-            <span>Modo sem leitura<br><small>Tudo por voz, fotos e cores</small></span>
-            <input id="silent-mode" type="checkbox" ${state.silentMode ? "checked" : ""}>
-          </label>
-          <p class="hint">O modo sem leitura é salvo no cadastro do idoso pela API.</p>
-          <div class="actions single">
-            <button class="action-yes" data-action="home">Pronto</button>
-          </div>
-        </div>
-      </div>
-    </section>`;
-}
-
-function render() {
-  const screens = {
-    login: renderLogin,
-    home: renderHome,
-    make: renderMake,
-    confirm: renderConfirm,
-    sent: renderSent,
-    guide: renderGuide,
-    guideDone: renderGuideDone,
-    scam: renderScam,
-    scamResult: renderScamResult,
-    help: renderHelp,
-    emergency: renderEmergency,
-    settings: renderSettings,
-    profile: renderProfile,
-  };
-  app.innerHTML = (screens[state.screen] || renderHome)();
-  if (state.screen === "make") document.querySelector("#task-text")?.focus({ preventScroll: true });
-  if (state.screen === "scam") document.querySelector("#scam-text")?.focus({ preventScroll: true });
-  if (state.screen === "sent") updateUndoCountdown();
-}
-
-async function createTaskDraft(text) {
-  const contactMatch = text.match(/\b(?:para|pra|pro)\s+([A-Za-zÀ-ÿ]+)\b/i);
-  const contentMatch = text.match(/\b(?:dizendo|falando)\s+(?:que\s+)?(.+)$/i);
-  try {
-    const task = await apiRequest("/tarefas", {
-      method: "POST",
-      body: { idIdoso: state.idosoId, pedido: text },
-    });
-    state.taskDraft = {
-      id: task.id,
-      contact: contactMatch ? contactMatch[1] : "seu contato",
-      content: contentMatch ? contentMatch[1].trim() : text.trim(),
-    };
-    state.taskText = "";
-    state.screen = "confirm";
-    render();
-  } catch (error) {
-    showApiError(error);
-  }
-}
-
-function focusSpeechInput() {
-  let field = app.querySelector("#task-text, #scam-text");
-  if (!field && state.screen !== "scam") {
-    state.screen = "make";
-    render();
-    field = app.querySelector("#task-text");
-  }
-  field?.focus();
-  return field;
+function speakScreen(queue = false) {
+  const text = Array.from(app.querySelectorAll("section h1, section p, section label, section dt, section dd"))
+    .map((node) => node.textContent.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .join(". ");
+  if (text) speak(text, queue);
 }
 
 function speechErrorMessage(error) {
@@ -624,330 +380,1096 @@ function speechErrorMessage(error) {
     "no-speech": "Não ouvi nada. Fale mais perto do microfone ou digite o pedido.",
     network: "Falha na conexão do serviço de voz. Verifique a internet ou digite o pedido.",
     "language-not-supported": "O ditado em português não está disponível. Você pode digitar o pedido.",
-    aborted: "O ditado foi interrompido. Você pode tentar novamente ou digitar o pedido.",
   };
   return messages[error] || "Não consegui ouvir. Verifique a permissão do microfone ou digite o pedido.";
 }
 
+// Decide o que fazer com a frase falada: preenche o campo atual ou escolhe a função.
+function routeSpeech(text) {
+  const lower = text.toLowerCase();
+  if (state.screen === "scam") {
+    state.scamText = text;
+    return go("scam", { keepScam: true });
+  }
+  if (state.screen === "make") {
+    state.taskText = text;
+    return render();
+  }
+  if (/emerg|socorro/.test(lower)) return go("emergency");
+  if (/golpe|suspeit|estranh/.test(lower)) return go("scam");
+  if (/ensina|aprend|aposentadoria|como (eu )?fa/.test(lower)) return go("guideList");
+  if (/ajuda|chamar algu/.test(lower)) return go("help");
+  state.taskText = text;
+  go("make");
+}
+
+function stopListening() {
+  try {
+    recognition?.abort();
+  } catch {
+    /* já parado */
+  }
+  recognition = null;
+  state.listening = false;
+  render();
+}
+
 function beginListening() {
-  const field = focusSpeechInput();
+  if (state.listening) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
     showToast("Ditado por voz indisponível neste navegador. Você pode escrever o pedido.");
     return;
   }
 
-  let recognition;
   try {
     recognition = new Recognition();
   } catch {
     showToast("Não foi possível iniciar o ditado. Você pode escrever o pedido.");
-    field?.focus();
     return;
   }
+  const current = recognition;
+  current.lang = "pt-BR";
+  current.interimResults = true;
+  current.maxAlternatives = 1;
+  let finished = false;
 
-  recognition.lang = "pt-BR";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  let receivedResult = false;
-  let receivedError = false;
-
-  recognition.onresult = (event) => {
-    receivedResult = true;
-    const spokenText = event.results[0][0].transcript;
-    const input = focusSpeechInput();
-    if (input) {
-      input.value = spokenText;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+  current.onresult = (event) => {
+    if (recognition !== current) return;
+    const text = Array.from(event.results).map((result) => result[0].transcript).join(" ").trim();
+    state.heard = text;
+    const heardElement = overlay.querySelector("[data-heard]");
+    if (heardElement) heardElement.textContent = text;
+    if (event.results[event.results.length - 1].isFinal) {
+      finished = true;
+      recognition = null;
+      state.listening = false;
+      if (text) routeSpeech(text);
+      else render();
     }
   };
-  recognition.onerror = (event) => {
-    receivedError = true;
-    showToast(speechErrorMessage(event.error));
-    focusSpeechInput();
+  current.onerror = (event) => {
+    if (recognition !== current) return;
+    finished = true;
+    recognition = null;
+    state.listening = false;
+    render();
+    if (event.error !== "aborted") showToast(speechErrorMessage(event.error));
   };
-  recognition.onend = () => {
-    if (!receivedResult && !receivedError) {
+  current.onend = () => {
+    if (recognition !== current) return;
+    recognition = null;
+    if (!finished) {
+      state.listening = false;
+      render();
       showToast("Não ouvi nada. Tente falar novamente ou digite o pedido.");
-      focusSpeechInput();
     }
   };
 
-  showToast("Estou ouvindo. Pode falar.");
+  state.listening = true;
+  state.heard = "";
+  render();
   try {
-    recognition.start();
-  } catch (error) {
-    const message = error instanceof DOMException && error.name === "NotAllowedError"
-      ? "Microfone bloqueado. Permita o acesso ao microfone no navegador."
-      : error instanceof DOMException && error.name === "InvalidStateError"
-        ? "O ditado já está em andamento. Aguarde ou digite o pedido."
-        : "Não foi possível iniciar o ditado. Verifique o microfone ou digite o pedido.";
-    showToast(message);
-    field?.focus();
+    current.start();
+  } catch {
+    recognition = null;
+    state.listening = false;
+    render();
+    showToast("Não foi possível iniciar o ditado. Verifique o microfone ou digite o pedido.");
   }
 }
 
-function updateUndoCountdown() {
-  if (state.screen !== "sent") return;
-  const button = app.querySelector('[data-action="undo"]');
-  if (!button) return;
-  const secondsLeft = Math.max(0, Math.ceil((state.undoUntil - Date.now()) / 1000));
-  button.disabled = secondsLeft === 0;
-  button.innerHTML = `${icon("undo", "inline-icon")} &nbsp; Desfazer ${secondsLeft > 0 ? `(${secondsLeft})` : ""}`;
-  if (secondsLeft > 0) window.setTimeout(updateUndoCountdown, 1000);
+/* ---------------------------------------------------------------- Peças comuns */
+
+function topbar() {
+  return `
+    <div class="topbar">
+      <button class="round-btn bar" data-action="home" aria-label="Voltar ao início">${icon("back", 2.4)}</button>
+      <span class="topbar-label">${escapeHtml(SCREEN_LABELS[state.screen] || "")}</span>
+      <button class="round-btn bar" data-action="speak" aria-label="Ouvir esta tela">${icon("speaker")}</button>
+    </div>`;
 }
+
+function bottomNav() {
+  return `
+    <nav class="bottom-nav" aria-label="Navegação">
+      <button class="nav-btn" data-action="home">${icon("home")}Início</button>
+      <button class="nav-mic" data-action="listen" aria-label="Falar com o Netinho">${icon("mic")}</button>
+      <button class="nav-btn" data-action="help">${icon("users")}Ajuda</button>
+    </nav>`;
+}
+
+function offlineBanner() {
+  return `
+    <div class="offline-banner" role="alert">${icon("alert")}
+      Sem conexão. Algumas funções não vão funcionar agora.</div>`;
+}
+
+function portrait(contact, small = false) {
+  const style = contact.photo
+    ? `background-color:${contact.bg};background-image:url(${contact.photo})`
+    : `background-color:${contact.bg};color:${contact.ink}`;
+  return `<span class="portrait${small ? " sm" : ""}" style="${style}" aria-hidden="true">${contact.photo ? "" : escapeHtml(contact.nome[0]?.toUpperCase() || "?")}</span>`;
+}
+
+/* ---------------------------------------------------------------- Telas */
+
+function renderLogin() {
+  return `
+    <section class="screen login">
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span class="brand-name">Netinho Virtual</span>
+        <span class="brand-tagline">Seu assistente com paciência de neto.</span>
+      </div>
+      <form id="login-form" class="login-card">
+        <h1>Entrar</h1>
+        <p class="sub">Acesse o protótipo do assistente digital.</p>
+        <label class="label small" for="login-user">Usuário</label>
+        <input class="field" id="login-user" name="username" type="text" autocomplete="username" value="${escapeHtml(state.demoUser)}" required>
+        <label class="label small" for="login-password">Senha</label>
+        <input class="field" id="login-password" name="password" type="password" autocomplete="current-password" value="${escapeHtml(state.demoPassword)}" required>
+        <div class="demo-box" aria-label="Dados de demonstração">
+          <strong>Acesso de demonstração</strong>
+          <span>Usuário: <b>${escapeHtml(state.demoUser)}</b></span>
+          <span>Senha: <b>${escapeHtml(state.demoPassword)}</b></span>
+        </div>
+        <button class="btn btn-pink" type="submit">Entrar</button>
+      </form>
+      <p class="login-warning">Demonstração local. Este login não representa autenticação segura do backend.</p>
+    </section>`;
+}
+
+function nextReminder() {
+  return state.reminders.find((reminder) => !reminder.done);
+}
+
+function renderHome() {
+  const next = nextReminder();
+  return `
+    <section class="screen home">
+      <div class="home-head">
+        <button class="avatar-btn" data-action="profile" aria-label="Meu perfil"></button>
+        <span class="home-who"><span>Netinho Virtual</span><strong>${escapeHtml(state.idosoNome)}</strong></span>
+        <button class="round-btn" data-action="settings" aria-label="Configurações">${icon("sliders", 2)}</button>
+      </div>
+
+      <div class="hero">
+        <div>
+          <h1>Oi, ${escapeHtml(firstName(state.idosoNome))}!</h1>
+          <p>Aperte o botão rosa e fale.</p>
+        </div>
+        <button class="hero-mic" data-action="listen" aria-label="Falar com o Netinho">${icon("mic", 2)}</button>
+      </div>
+
+      <nav class="fn-grid" aria-label="O que você quer fazer?">
+        <button class="fn-card fn-guide" data-action="guideList"><span class="fn-icon">${icon("book", 2)}</span><strong>Me ensina</strong></button>
+        <button class="fn-card fn-make" data-action="make"><span class="fn-icon">${icon("message", 2)}</span><strong>Faz pra mim</strong></button>
+        <button class="fn-card fn-scam" data-action="scam"><span class="fn-icon">${icon("shield", 2)}</span><strong>É golpe?</strong></button>
+        <button class="fn-card fn-help" data-action="help"><span class="fn-icon">${icon("users", 2)}</span><strong>Pedir ajuda</strong></button>
+      </nav>
+
+      ${next ? `
+        <button class="next-reminder" data-action="reminders">
+          <span class="bell">${icon("bell")}</span>
+          <span class="next-text"><span>Próximo lembrete</span><strong>${escapeHtml(next.titulo)}</strong></span>
+          <span class="time-pill">${escapeHtml(next.hora)}</span>
+        </button>` : ""}
+
+      <button class="btn btn-red" data-action="emergency">${icon("phone")}Emergência</button>
+    </section>`;
+}
+
+function phonePreview() {
+  const screen = state.screen;
+  const draft = state.draft || { contact: "Rafael", content: "" };
+  const contact = screen === "make" ? "Rafael" : draft.contact;
+  const content = screen === "make" ? (state.taskText || "Sua mensagem vai aparecer aqui.") : draft.content;
+  const notes = {
+    make: "Prévia ilustrativa; ainda não mexi no seu celular.",
+    confirm: 'Vou tocar em "Enviar" só depois da sua confirmação.',
+    sent: "Simulação visual: nenhuma mensagem real foi enviada.",
+  };
+  return `
+    <div class="preview">
+      <div class="phone" aria-label="Prévia ilustrativa de uma conversa no celular">
+        <div class="phone-head">
+          <span class="phone-initial" aria-hidden="true">${escapeHtml((contact[0] || "R").toUpperCase())}</span>
+          <span class="phone-who"><strong>${escapeHtml(contact)}</strong><span>Mensagens</span></span>
+          <span class="demo-tag">Demonstração</span>
+        </div>
+        <div class="chat">
+          <div class="bubble in">Oi, mãe! Tudo bem?</div>
+          <div class="bubble out${screen === "sent" ? " sent" : ""}"><span data-preview-message>${escapeHtml(content)}</span>
+            ${screen === "sent" ? `<span class="bubble-status">${icon("check", 3)}Enviado</span>` : ""}
+          </div>
+        </div>
+        <div class="compose${screen === "confirm" ? " glow" : ""}">Mensagem
+          <span class="compose-send">${icon("arrow", 2.6)}</span>
+        </div>
+      </div>
+      <p class="note">${notes[screen]}</p>
+    </div>`;
+}
+
+function renderMake() {
+  return `
+    <section class="screen">
+      <h1 class="title">O que você quer que eu faça?</h1>
+      ${phonePreview()}
+      <form id="task-form" class="card push-bottom">
+        <label class="label" for="task-text">Pode escrever ou falar</label>
+        <div class="field-wrap">
+          <textarea class="field with-mic" id="task-text" name="taskText" placeholder="Ex.: Manda mensagem pro Rafael dizendo que chego às 3">${escapeHtml(state.taskText)}</textarea>
+          <button class="field-mic" type="button" data-action="listen" aria-label="Falar pedido">${icon("mic")}</button>
+        </div>
+        <p class="note" style="padding:0;text-align:left">Eu vou mostrar tudo para você confirmar antes.</p>
+        <div class="btn-row auto">
+          <button class="btn btn-soft" type="button" data-action="home">Voltar</button>
+          <button class="btn btn-blue" type="submit">Continuar ${icon("arrow", 2.6)}</button>
+        </div>
+      </form>
+    </section>`;
+}
+
+function renderConfirm() {
+  return `
+    <section class="screen">
+      <h1 class="title">Mando para ${escapeHtml(state.draft.contact)}?</h1>
+      ${phonePreview()}
+      <div class="card confirm-card push-bottom">
+        <p class="ask">Posso enviar?</p>
+        <div class="btn-row">
+          <button class="btn choice btn-danger-soft" data-action="cancel-task">${icon("close", 2.8)}Não</button>
+          <button class="btn choice btn-green" data-action="confirm-task">${icon("check", 2.8)}Sim</button>
+        </div>
+      </div>
+    </section>`;
+}
+
+function undoButtonInner() {
+  const left = state.undoLeft;
+  const offset = (62.8 * (1 - left / UNDO_SECONDS)).toFixed(1);
+  return `<svg class="ico undo-ring" viewBox="0 0 24 24" fill="none" stroke-width="3" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" opacity=".18"/>
+      <circle class="ring" cx="12" cy="12" r="10" stroke="currentColor" stroke-linecap="round" stroke-dasharray="62.8" stroke-dashoffset="${offset}"/>
+    </svg><span data-undo-label>${left > 0 ? `Desfazer (${left})` : "Desfazer"}</span>`;
+}
+
+function renderSent() {
+  return `
+    <section class="screen">
+      <h1 class="title">Pronto! O ${escapeHtml(state.draft.contact)} já recebeu.</h1>
+      ${phonePreview()}
+      <div class="card push-bottom">
+        <button class="btn btn-outline" data-action="undo" ${state.undoLeft === 0 ? "disabled" : ""}>${undoButtonInner()}</button>
+        <div class="btn-row">
+          <button class="btn btn-soft" data-action="home">Início</button>
+          <button class="btn btn-blue" data-action="make" style="box-shadow:none">${icon("mic")}Falar</button>
+        </div>
+      </div>
+    </section>`;
+}
+
+function loadingCard(text) {
+  return `<div class="empty-card">${escapeHtml(text)}</div>`;
+}
+
+function renderGuideList() {
+  let list;
+  if (state.guidesError) list = loadingCard("Não consegui carregar os guias. Tente de novo daqui a pouco.");
+  else if (state.guides === null) list = loadingCard("Carregando os guias…");
+  else if (state.guides.length === 0) list = loadingCard("Ainda não há guias disponíveis.");
+  else {
+    list = state.guides.map((guide) => `
+          <button class="guide-item" data-action="open-guide" data-guide="${escapeHtml(guide.id)}">
+            <span class="yellow-icon">${icon("book", 2)}</span>
+            <span class="guide-item-text"><strong>${escapeHtml(guide.title)}</strong><span>${guide.steps.length} ${guide.steps.length === 1 ? "passo" : "passos"}${guide.app ? ` · ${escapeHtml(guide.app)}` : ""}</span></span>
+            ${icon("chevron", 2.6)}
+          </button>`).join("");
+  }
+  return `
+    <section class="screen">
+      <h1 class="title">O que você quer aprender?</h1>
+      <div class="list">${list}</div>
+      <p class="note push-bottom">Eu explico um passo de cada vez, sem pressa.</p>
+    </section>`;
+}
+
+function guideStepAt(index) {
+  return state.guide?.steps[index] || null;
+}
+
+function renderGuide() {
+  const guide = state.guide;
+  const total = Math.max(guide.steps.length, state.guideStep + 1);
+  const local = guideStepAt(state.guideStep);
+  const instruction = state.apiStep?.txPasInstrucao || local?.instrucao || "";
+  const highlight = state.apiStep?.nmPasElemento || local?.elemento || "";
+  const segments = Array.from({ length: total }, (_, index) =>
+    `<span class="${index < state.guideStep ? "done" : index === state.guideStep ? "now" : ""}"></span>`).join("");
+  return `
+    <section class="screen">
+      <h1 class="title">Aperte onde está brilhando.</h1>
+      <div class="card step-card">
+        <div class="step-head"><span>${escapeHtml(guide.title)}</span><span class="step-count">Passo ${state.guideStep + 1} de ${total}</span></div>
+        <div class="segments" aria-label="Progresso do guia: passo ${state.guideStep + 1} de ${total}">${segments}</div>
+        <div class="step-body">
+          <span class="step-num" aria-hidden="true">${state.guideStep + 1}</span>
+          <p class="step-text">${escapeHtml(instruction)}</p>
+        </div>
+        <div class="touch-box">Toque no seu celular:
+          <span class="touch-target">${escapeHtml(highlight)}</span>
+        </div>
+      </div>
+      <div class="btn-stack push-bottom">
+        <button class="btn btn-green btn-lg" data-action="advance-guide">${icon("check", 2.8)}Consegui</button>
+        <button class="btn btn-card" data-action="explain-guide">${icon("question")}Outra explicação</button>
+      </div>
+    </section>`;
+}
+
+function renderGuideDone() {
+  return `
+    <section class="screen">
+      <div class="celebrate">
+        <span class="big-check">${icon("check", 3)}</span>
+        <h1>Você conseguiu! Fez tudo sozinha.</h1>
+      </div>
+      <div class="card done-card">
+        <p class="strong">Você terminou o guia: ${escapeHtml(state.guide?.title || "")}.</p>
+        <p class="small">Este protótipo não faz nada de verdade no aplicativo.</p>
+        <button class="btn btn-ink" data-action="home">Início</button>
+      </div>
+    </section>`;
+}
+
+function renderScam() {
+  return `
+    <section class="screen">
+      <h1 class="title">Vamos olhar juntos.</h1>
+      <form id="scam-form" class="scam-form">
+        <div class="card">
+          <label class="label" for="scam-text">Cole ou escreva a mensagem</label>
+          <textarea class="field tall orange" id="scam-text" name="scamText" placeholder="Ex.: Mãe, troquei de número. Me manda um Pix agora!">${escapeHtml(state.scamText)}</textarea>
+          ${state.scamImg ? `
+            <div class="attached">
+              <span class="thumb" role="img" aria-label="Imagem anexada" style="background-image:url(${escapeHtml(state.scamImg)})"></span>
+              <strong>Imagem anexada</strong>
+              <button class="round-btn" type="button" data-action="clear-scam-img" aria-label="Remover imagem">${icon("close", 2.6)}</button>
+            </div>` : ""}
+          <label class="photo-btn">${icon("camera")}Enviar foto ou print
+            <input class="visually-hidden" id="scam-img" type="file" accept="image/*">
+          </label>
+        </div>
+        <div class="warning">${icon("shield")}Não abra links nem envie dinheiro enquanto verificamos.</div>
+        <div class="btn-row auto push-bottom">
+          <button class="btn btn-card btn-tall" type="button" data-action="home">Voltar</button>
+          <button class="btn btn-orange" type="submit">Verificar</button>
+        </div>
+      </form>
+    </section>`;
+}
+
+function renderScamResult() {
+  const result = state.scam;
+  const high = result.level === "ALTO";
+  const tone = high ? "risk-high" : result.level === "MÉDIO" ? "risk-mid" : "risk-low";
+  return `
+    <section class="screen">
+      <div class="risk-top">
+        <span class="risk-icon ${tone}">${icon("shield")}</span>
+        <span class="risk-badge ${tone}">Risco ${escapeHtml(result.level)}</span>
+        <h1>${high ? "Não aperte! Pode ser golpe." : "Aqui está o que encontrei."}</h1>
+      </div>
+      <div class="card risk-card">
+        <div><strong class="k">Por quê?</strong><p>${escapeHtml(result.reason)}</p></div>
+        <div><strong class="k">O que fazer?</strong><p class="strong">${escapeHtml(result.advice)}</p></div>
+        <div class="btn-row auto">
+          <button class="btn btn-soft" data-action="scam">Ver outra</button>
+          <button class="btn btn-ink" data-action="home">Entendi ${icon("check", 2.8)}</button>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderHelp() {
+  const contacts = state.supportContacts.length
+    ? state.supportContacts.map((contact) => `
+        <div class="contact">
+          ${portrait(contact)}
+          <span class="contact-text"><strong>${escapeHtml(firstName(contact.nome))}</strong><span>${escapeHtml(contact.parentesco)}</span></span>
+          <span class="order-pill">${escapeHtml(contact.ordem)}º contato</span>
+        </div>`).join("")
+    : `<div class="empty-card">Os contatos da rede de apoio aparecerão aqui.</div>`;
+  return `
+    <section class="screen">
+      <h1 class="title">Quem você quer chamar?</h1>
+      <div class="list">${contacts}</div>
+      <div class="btn-stack push-bottom">
+        <p class="note" style="margin-bottom:4px;font-size:17px">Vou registrar seu pedido de ajuda pela API.</p>
+        <button class="btn btn-green btn-lg" data-action="notify-family">${icon("users")}Pedir ajuda</button>
+        <button class="btn btn-card" data-action="home">Agora não</button>
+      </div>
+    </section>`;
+}
+
+function renderEmergency() {
+  const contacts = state.supportContacts.length
+    ? state.supportContacts.map((contact) => `
+        <div class="trusted-row">
+          ${portrait(contact, true)}
+          <strong>${escapeHtml(firstName(contact.nome))}</strong>
+          <span>${escapeHtml(contact.parentesco)} · ${escapeHtml(contact.ordem)}º</span>
+        </div>`).join("")
+    : `<p class="small" style="font-size:16px">Os contatos de emergência serão carregados da rede de apoio.</p>`;
+  return `
+    <section class="screen">
+      <h1 class="title big center">Segure o botão para pedir ajuda.</h1>
+      <div class="hold-area">
+        <button id="hold" class="hold${state.hold === "done" ? " done" : ""}" ${state.hold === "done" ? "disabled" : ""}>
+          <span class="fill"></span>
+          ${icon("phone", 2)}
+          <span class="hold-label" data-hold-label>${state.hold === "done" ? "Pedido registrado" : "Segure por 2 segundos"}</span>
+        </button>
+      </div>
+      <div class="card trusted">
+        <strong>Contatos de confiança</strong>
+        ${contacts}
+        <button class="btn btn-ink" data-action="samu">Ligar 192 · SAMU</button>
+        <p class="small">O pedido é registrado na API. A ligação para 192 não é iniciada automaticamente.</p>
+      </div>
+    </section>`;
+}
+
+function renderReminders() {
+  const list = state.reminders.length
+    ? state.reminders.map((reminder) => {
+      const label = reminder.done ? "Feito" : reminder.tipo === "Consulta" ? "Já fui" : "Já tomei";
+      return `
+        <div class="card reminder${reminder.done ? " is-done" : ""}">
+          <div class="reminder-top">
+            <span class="when"><span>${escapeHtml(reminder.quando)}</span><strong>${escapeHtml(reminder.hora)}</strong></span>
+            <span class="reminder-text"><strong>${escapeHtml(reminder.titulo)}</strong><span>${escapeHtml(reminder.tipo)}</span></span>
+          </div>
+          <button class="btn ${reminder.done ? "btn-done" : "btn-green"}" style="box-shadow:none" data-action="toggle-reminder" data-reminder="${escapeHtml(reminder.id)}" aria-pressed="${reminder.done}">${icon("check", 2.8)}${label}</button>
+        </div>`;
+    }).join("")
+    : `<div class="empty-card">Nenhum lembrete por enquanto.</div>`;
+  return `
+    <section class="screen">
+      <h1 class="title">Seus lembretes</h1>
+      <div class="list">${list}</div>
+      <p class="note push-bottom">Os lembretes são cadastrados por um familiar.</p>
+    </section>`;
+}
+
+function historyWhen(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${dayLabel(date)}, ${timeLabel(date)}`;
+}
+
+function renderHistory() {
+  let rows;
+  if (state.historyError) rows = `<div class="history-row"><span class="history-text"><strong>Não consegui carregar o histórico.</strong><span>Tente de novo daqui a pouco.</span></span></div>`;
+  else if (state.history === null) rows = `<div class="history-row"><span class="history-text"><strong>Carregando…</strong></span></div>`;
+  else rows = state.history.length
+    ? state.history.map((item) => `
+        <div class="history-row">
+          <span class="dot" style="background:${HISTORY_DOTS[item.type] || "#15152a"}"></span>
+          <span class="history-text"><strong>${escapeHtml(item.text)}</strong><span>${escapeHtml(historyWhen(item.at))}</span></span>
+        </div>`).join("")
+    : `<div class="history-row"><span class="history-text"><strong>Ainda não fizemos nada juntos.</strong><span>O que você fizer com o Netinho aparece aqui.</span></span></div>`;
+  return `
+    <section class="screen">
+      <h1 class="title">O que já fizemos</h1>
+      <div class="card history">${rows}</div>
+    </section>`;
+}
+
+function renderProfile() {
+  return `
+    <section class="screen">
+      <div class="profile-top">
+        <span class="profile-photo" aria-hidden="true"></span>
+        <h1>${escapeHtml(state.idosoNome)}</h1>
+        <span>Usuário: <strong>${escapeHtml(state.demoUser)}</strong></span>
+      </div>
+      <dl class="card details">
+        <div><dt>Cadastro</dt><dd>Idoso nº ${escapeHtml(state.idosoId)}</dd></div>
+        <div><dt>API</dt><dd>${escapeHtml(state.apiBase)}</dd></div>
+        <div><dt>Conexão</dt><dd class="pill${state.apiConnected ? "" : " off"}">${state.apiConnected ? "Conectada" : "Desconectada"}</dd></div>
+        <div><dt>Modo sem leitura</dt><dd>${state.silentMode ? "Ativado" : "Desativado"}</dd></div>
+      </dl>
+      <div class="btn-stack push-bottom">
+        <button class="btn btn-blue lg" data-action="settings">Configurações</button>
+        <button class="btn btn-card" data-action="history">Histórico</button>
+        <button class="btn btn-danger-soft" data-action="logout">Sair da conta</button>
+      </div>
+    </section>`;
+}
+
+function renderSettings() {
+  return `
+    <section class="screen settings">
+      <h1 class="title">Configurações</h1>
+      <button class="switch-row" role="switch" aria-checked="${state.silentMode}" data-action="toggle-silent">
+        <span class="switch-text"><strong>Modo sem leitura</strong><span>Tudo por voz, fotos e cores</span></span>
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      </button>
+      <p class="note left">O modo sem leitura é salvo no cadastro do idoso pela API.</p>
+      <form id="connection-form" class="card">
+        <label class="label small" for="api-url" style="margin-bottom:-4px">Endereço da API</label>
+        <input class="field sm" id="api-url" name="apiUrl" type="text" value="${escapeHtml(state.apiBase)}" required>
+        <label class="label small" for="idoso-id" style="margin-bottom:-4px">Código do idoso</label>
+        <input class="field sm" id="idoso-id" name="idosoId" type="text" inputmode="numeric" value="${escapeHtml(state.idosoId)}" required>
+        <button class="btn btn-blue-soft" type="submit" style="margin-top:4px">Conectar</button>
+      </form>
+      <button class="btn btn-green push-bottom" style="min-height:72px;font-size:22px" data-action="home">Pronto</button>
+    </section>`;
+}
+
+const SCREENS = {
+  login: renderLogin,
+  home: renderHome,
+  make: renderMake,
+  confirm: renderConfirm,
+  sent: renderSent,
+  guideList: renderGuideList,
+  guide: renderGuide,
+  guideDone: renderGuideDone,
+  scam: renderScam,
+  scamResult: renderScamResult,
+  help: renderHelp,
+  emergency: renderEmergency,
+  reminders: renderReminders,
+  history: renderHistory,
+  profile: renderProfile,
+  settings: renderSettings,
+};
+
+/* ---------------------------------------------------------------- Renderização */
+
+function screenTone() {
+  const screen = state.screen;
+  if (screen === "login") return "night";
+  if (screen === "emergency" || (screen === "scamResult" && state.scam?.level === "ALTO")) return "red";
+  if (screen === "guideDone") return "done";
+  if (["make", "confirm", "sent"].includes(screen)) return "task";
+  if (["guide", "guideList"].includes(screen)) return "guide";
+  if (["scam", "scamResult"].includes(screen)) return "scam";
+  if (screen === "help") return "help";
+  return "page";
+}
+
+function renderOverlay() {
+  if (state.listening) {
+    return `
+      <div class="backdrop" role="dialog" aria-modal="true" aria-label="Ouvindo">
+        <div class="sheet listening">
+          <span class="pulse" aria-hidden="true"><span class="ring"></span><span class="ring late"></span><span class="core">${icon("mic", 2)}</span></span>
+          <strong class="sheet-title">Estou ouvindo. Pode falar.</strong>
+          <p data-heard>${escapeHtml(state.heard || "Diga, por exemplo: “isso é golpe?” ou “manda mensagem pro Rafael”.")}</p>
+          <button class="btn btn-soft btn-tall" data-action="stop-listen" style="font-size:21px">Parar</button>
+        </div>
+      </div>`;
+  }
+  if (state.error) {
+    return `
+      <div class="backdrop" role="alertdialog" aria-modal="true" aria-label="Erro de conexão">
+        <div class="sheet">
+          <span class="alert-icon">${icon("alert")}</span>
+          <strong class="sheet-title">Não consegui conectar.</strong>
+          <p>${escapeHtml(state.error)}</p>
+          <button class="btn btn-ink" data-action="close-error">Tentar de novo</button>
+          <button class="btn btn-soft" data-action="error-home">Voltar ao início</button>
+        </div>
+      </div>`;
+  }
+  return "";
+}
+
+function render() {
+  const screen = state.screen;
+  const changed = screen !== lastRenderedScreen;
+  const tone = screenTone();
+  const dark = ["night", "red", "done"].includes(tone);
+
+  app.dataset.tone = tone;
+  app.classList.toggle("is-dark", dark);
+  app.classList.toggle("has-nav", hasNav());
+
+  app.innerHTML = [
+    state.apiConnected === false && screen !== "login" ? offlineBanner() : "",
+    hasNav() ? topbar() : "",
+    (SCREENS[screen] || renderHome)(),
+    hasNav() ? bottomNav() : "",
+  ].join("");
+
+  const section = app.querySelector("section");
+  if (changed) section?.classList.add("enter");
+
+  const previousOverlay = overlay.dataset.kind || "";
+  overlay.innerHTML = renderOverlay();
+  overlay.dataset.kind = state.listening ? "listening" : state.error ? "error" : "";
+  if (overlay.dataset.kind && overlay.dataset.kind !== previousOverlay) {
+    overlay.querySelector(".sheet .btn")?.focus({ preventScroll: true });
+  }
+
+  toastElement.classList.toggle("above-nav", hasNav());
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? (tone === "red" ? "#d3261a" : tone === "done" ? "#0b8250" : "#15152a") : "#15152a");
+
+  if (changed) {
+    lastRenderedScreen = screen;
+    window.scrollTo(0, 0);
+    if (screen !== "sent") window.clearInterval(undoTimer);
+    if (state.silentMode && screen !== "login") window.setTimeout(() => speakScreen(true), 150);
+  }
+}
+
+function go(screen, { keepScam = false } = {}) {
+  if (screen === "scam" && !keepScam) {
+    state.scamText = "";
+    clearScamImage();
+  }
+  window.clearTimeout(holdTimer);
+  state.hold = "idle";
+  state.screen = screen;
+  render();
+  if (screen === "help" || screen === "emergency") refreshSupportNetwork(screen);
+  if (screen === "reminders" || screen === "home") refreshReminders(screen);
+  if (screen === "guideList") refreshGuides();
+  if (screen === "history") refreshHistory();
+}
+
+async function refreshSupportNetwork(screen) {
+  try {
+    await loadSupportNetwork();
+    if (state.screen === screen) render();
+  } catch {
+    if (state.screen === screen) render();
+  }
+}
+
+async function refreshGuides() {
+  state.guidesError = false;
+  if (state.guides === null) render();
+  try {
+    await loadGuides();
+  } catch {
+    if (state.guides === null) state.guidesError = true;
+  }
+  if (state.screen === "guideList") render();
+}
+
+async function refreshHistory() {
+  state.historyError = false;
+  try {
+    await loadHistory();
+  } catch {
+    if (state.history === null) state.historyError = true;
+  }
+  if (state.screen === "history") render();
+}
+
+async function refreshReminders(screen) {
+  if (state.screen === "home" && state.apiConnected === null) return; // a carga inicial já busca
+  try {
+    await loadReminders();
+    if (state.screen === screen) render();
+  } catch {
+    /* mantém a lista atual */
+  }
+}
+
+/* ---------------------------------------------------------------- Ações */
+
+function clearScamImage() {
+  if (state.scamImg) URL.revokeObjectURL(state.scamImg);
+  state.scamImg = "";
+}
+
+function parseDraft(text) {
+  const contactMatch = text.match(/(?:para|pra|pro)\s+(?:o\s+|a\s+)?([A-Za-zÀ-ÿ]+)/i);
+  const contentMatch = text.match(/(?:dizendo|falando)\s+(?:que\s+)?(.+)$/i);
+  return {
+    contact: contactMatch ? contactMatch[1] : "seu contato",
+    content: contentMatch ? contentMatch[1].trim() : text.trim(),
+  };
+}
+
+async function submitTask(text) {
+  if (!text) {
+    showToast("Escreva ou fale o seu pedido.");
+    return;
+  }
+  try {
+    const task = await apiRequest("/tarefas", {
+      method: "POST",
+      body: { idIdoso: state.idosoId, pedido: text },
+    });
+    state.draft = { id: task.id, ...parseDraft(text) };
+    state.taskText = "";
+    go("confirm");
+  } catch (error) {
+    showApiError(error, "Não deu para preparar a mensagem agora. Seu pedido continua escrito aqui.");
+  }
+}
+
+async function confirmTask() {
+  try {
+    await apiRequest(`/tarefas/${state.draft.id}/confirmar`, { method: "PUT", body: { resposta: "SIM" } });
+  } catch (error) {
+    showApiError(error, "Não deu para enviar agora. Nada foi enviado.");
+    return;
+  }
+  state.undoLeft = UNDO_SECONDS;
+  go("sent");
+  window.clearInterval(undoTimer);
+  undoTimer = window.setInterval(() => {
+    state.undoLeft = Math.max(0, state.undoLeft - 1);
+    const button = app.querySelector('[data-action="undo"]');
+    if (button) {
+      button.innerHTML = undoButtonInner();
+      button.disabled = state.undoLeft === 0;
+    }
+    if (state.undoLeft === 0) window.clearInterval(undoTimer);
+  }, 1000);
+}
+
+async function cancelTask() {
+  if (state.draft?.id) {
+    apiRequest(`/tarefas/${state.draft.id}/confirmar`, { method: "PUT", body: { resposta: "NAO" } }).catch(() => {});
+  }
+  go("home");
+  showToast("Tudo bem. A tarefa foi cancelada.");
+}
+
+async function undoTask() {
+  if (state.undoLeft === 0) {
+    showToast("O tempo para desfazer terminou.");
+    return;
+  }
+  window.clearInterval(undoTimer);
+  try {
+    await apiRequest(`/tarefas/${state.draft.id}/desfazer`, { method: "PUT" });
+    state.undoLeft = 0;
+    go("home");
+    showToast("Tarefa desfeita.");
+  } catch (error) {
+    showApiError(error, "Não deu para desfazer agora. Avise alguém da família se precisar.");
+  }
+}
+
+async function openGuide(id) {
+  const guide = state.guides?.find((item) => String(item.id) === String(id));
+  if (!guide) return;
+  try {
+    const task = await apiRequest("/tarefas", {
+      method: "POST",
+      body: { idIdoso: state.idosoId, idGuia: guide.id },
+    });
+    state.guide = guide;
+    state.guideStep = 0;
+    state.guideTaskId = task.id;
+    state.apiStep = await apiRequest(`/tarefas/${task.id}/passo-atual`);
+    go("guide");
+  } catch (error) {
+    showApiError(error, "Não deu para abrir o guia agora. Tente de novo daqui a pouco.");
+  }
+}
+
+async function advanceGuide() {
+  try {
+    const result = await apiRequest(`/tarefas/${state.guideTaskId}/avancar`, {
+      method: "PUT",
+      body: { concluido: true },
+    });
+    if (result?.concluido) {
+      state.apiStep = null;
+      go("guideDone");
+    } else {
+      state.apiStep = await apiRequest(`/tarefas/${state.guideTaskId}/passo-atual`);
+      state.guideStep += 1;
+      render();
+    }
+  } catch (error) {
+    showApiError(error, "Não deu para ir ao próximo passo agora. Você continua neste passo.");
+  }
+}
+
+function explainGuide() {
+  const element = state.apiStep?.nmPasElemento || guideStepAt(state.guideStep)?.elemento || "o botão indicado";
+  const text = `Procure "${element}" na tela do celular. É só tocar nele com calma. Se não achar, peça ajuda.`;
+  speak(text);
+  showToast(text);
+}
+
+async function submitScam(text) {
+  if (!text && !state.scamImg) {
+    showToast("Cole ou escreva a mensagem.");
+    return;
+  }
+  try {
+    const result = await apiRequest("/golpes/verificar", {
+      method: "POST",
+      body: { idIdoso: state.idosoId, texto: text, imagem: Boolean(state.scamImg) },
+    });
+    state.scam = {
+      level: result.nivel === "MEDIO" ? "MÉDIO" : result.nivel,
+      reason: result.motivo,
+      advice: result.oQueFazer,
+    };
+    go("scamResult");
+  } catch (error) {
+    showApiError(error, "Não deu para verificar agora. Enquanto isso, não abra links nem envie dinheiro.");
+  }
+}
+
+async function notifyFamily() {
+  try {
+    const help = await apiRequest("/atendimentos", {
+      method: "POST",
+      body: { idIdoso: state.idosoId, tentativas: 0 },
+    });
+    go("home");
+    showToast(help?.indicacao
+      ? `Pedido registrado. ${help.indicacao} pode atender.`
+      : "Pedido registrado. Não há atendente disponível agora.");
+  } catch (error) {
+    showApiError(error, "Não deu para registrar o pedido agora. Se for urgente, ligue para alguém da família.");
+  }
+}
+
+async function toggleReminder(id) {
+  const reminder = state.reminders.find((item) => String(item.id) === String(id));
+  if (!reminder) return;
+  const done = !reminder.done;
+  try {
+    await apiRequest(`/lembretes/${reminder.id}`, {
+      method: "PUT",
+      body: { ...reminder.raw, status: done ? "CUMPRIDO" : "PENDENTE", dataCumprimento: null },
+    });
+  } catch (error) {
+    showApiError(error, "Não deu para marcar o lembrete agora.");
+    return;
+  }
+  reminder.done = done;
+  reminder.raw = { ...reminder.raw, status: done ? "CUMPRIDO" : "PENDENTE" };
+  render();
+}
+
+async function toggleSilent() {
+  const ativo = !state.silentMode;
+  try {
+    await apiRequest(`/idosos/${state.idosoId}/modo-sem-leitura`, { method: "PUT", body: { ativo } });
+  } catch (error) {
+    showApiError(error, "Não deu para salvar o modo sem leitura agora.");
+    return;
+  }
+  state.silentMode = ativo;
+  render();
+  showToast(ativo ? "Modo sem leitura ligado." : "Modo sem leitura desligado.");
+}
+
+async function connect(apiUrl, idosoId) {
+  if (!apiUrl || !Number.isInteger(idosoId) || idosoId < 1) {
+    showToast("Informe um endereço e um código de idoso válidos.");
+    return;
+  }
+  state.apiBase = apiUrl;
+  state.idosoId = idosoId;
+  writeStorage("netinho-api-url", apiUrl);
+  writeStorage("netinho-idoso-id", String(idosoId));
+  const ok = await loadAll();
+  if (ok) showToast(`Conectado ao cadastro de ${state.idosoNome}.`);
+  else state.error = "Não consegui carregar o cadastro. Confira o endereço da API e o código do idoso.";
+  render();
+}
+
+/* ---------------------------------------------------------------- Emergência (segurar 2 s) */
+
+function holdLabel(text) {
+  const label = app.querySelector("#hold [data-hold-label]");
+  if (label) label.textContent = text;
+}
+
+document.addEventListener("pointerdown", (event) => {
+  const button = event.target.closest?.("#hold");
+  if (!button || state.hold !== "idle") return;
+  try {
+    button.setPointerCapture(event.pointerId);
+  } catch {
+    /* sem captura */
+  }
+  state.hold = "holding";
+  button.classList.add("holding");
+  holdLabel("Continue segurando…");
+  window.clearTimeout(holdTimer);
+  holdTimer = window.setTimeout(async () => {
+    state.hold = "done";
+    const current = app.querySelector("#hold");
+    if (current) {
+      current.classList.remove("holding");
+      current.classList.add("done");
+      current.disabled = true;
+    }
+    holdLabel("Pedido registrado");
+    if (navigator.vibrate) navigator.vibrate(300);
+    try {
+      const result = await apiRequest("/emergencias", { method: "POST", body: { idIdoso: state.idosoId } });
+      logLocalHistory("emergency", "Pedido de emergência registrado");
+      const names = (result?.contatos || []).map((contact) => firstName(contact.nome)).join(", ");
+      showToast(names
+        ? `Pedido de emergência registrado. Contatos: ${names}. Ligar ${result.ligar}.`
+        : `Pedido de emergência registrado. Ligar ${result?.ligar || "192"}.`);
+    } catch (error) {
+      if (state.screen === "emergency") state.hold = "idle";
+      showApiError(error, "Não deu para registrar a emergência. Ligue 192 ou para alguém da família.");
+    }
+  }, 2000);
+});
+
+function endHold() {
+  if (state.hold !== "holding") return;
+  window.clearTimeout(holdTimer);
+  state.hold = "idle";
+  app.querySelector("#hold")?.classList.remove("holding");
+  holdLabel("Segure por 2 segundos");
+}
+
+document.addEventListener("pointerup", endHold);
+document.addEventListener("pointercancel", endHold);
+
+/* ---------------------------------------------------------------- Eventos */
+
+// Modo sem leitura: fala o nome de cada botão tocado.
+document.addEventListener("click", (event) => {
+  if (!state.silentMode) return;
+  const button = event.target.closest?.("button, .photo-btn");
+  if (!button || button.dataset.action === "speak") return;
+  const text = button.getAttribute("aria-label") || button.textContent.trim().replace(/\s+/g, " ");
+  if (text) speak(text);
+}, true);
 
 app.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = new FormData(event.target);
+
   if (event.target.id === "login-form") {
-    const form = new FormData(event.target);
     const username = String(form.get("username")).trim();
     const password = String(form.get("password"));
     if (username !== state.demoUser || password !== state.demoPassword) {
       showToast("Usuário ou senha incorretos.");
       return;
     }
-    state.authenticated = true;
-    localStorage.setItem("netinho-session", "active");
-    state.screen = "home";
-    showToast(`Bem-vinda, ${state.profileName}.`);
+    writeStorage("netinho-session", "active");
+    go("home");
+    showToast(`Bem-vinda, ${state.idosoNome}.`);
+    await loadAll();
     render();
-    loadElder();
   }
-  if (event.target.id === "task-form") {
-    const text = new FormData(event.target).get("taskText").trim();
-    if (text) await createTaskDraft(text);
-  }
+  if (event.target.id === "task-form") await submitTask(String(form.get("taskText")).trim());
   if (event.target.id === "scam-form") {
-    state.scamText = new FormData(event.target).get("scamText").trim();
-    try {
-      const result = await apiRequest("/golpes/verificar", {
-        method: "POST",
-        body: { idIdoso: state.idosoId, texto: state.scamText, imagem: false },
-      });
-      state.scamResult = {
-        level: result.nivel === "MEDIO" ? "MÉDIO" : result.nivel,
-        reason: result.motivo,
-        advice: result.oQueFazer,
-      };
-      state.screen = "scamResult";
-      render();
-      if (state.silentMode) speak(`Risco ${state.scamResult.level}. ${state.scamResult.reason} ${state.scamResult.advice}`);
-    } catch (error) {
-      showApiError(error);
-    }
+    state.scamText = String(form.get("scamText")).trim();
+    await submitScam(state.scamText);
   }
   if (event.target.id === "connection-form") {
-    const form = new FormData(event.target);
-    const apiUrl = String(form.get("apiUrl")).trim().replace(/\/+$/, "");
-    const idosoId = Number(form.get("idosoId"));
-    if (!apiUrl || !Number.isInteger(idosoId) || idosoId < 1) {
-      showToast("Informe um endereço e um código de idoso válidos.");
-      return;
-    }
-    state.apiBase = apiUrl;
-    state.idosoId = idosoId;
-    localStorage.setItem("netinho-api-url", apiUrl);
-    localStorage.setItem("netinho-idoso-id", String(idosoId));
-    try {
-      await loadElder();
-      if (!state.apiConnected) throw new Error("Não foi possível carregar o cadastro.");
-      showToast(`Conectado ao cadastro de ${state.idosoNome}.`);
-      render();
-    } catch (error) {
-      showApiError(error);
-    }
-  }
-});
-
-app.addEventListener("change", async (event) => {
-  if (event.target.id === "silent-mode") {
-    const ativo = event.target.checked;
-    try {
-      await apiRequest(`/idosos/${state.idosoId}/modo-sem-leitura`, {
-        method: "PUT",
-        body: { ativo },
-      });
-      state.silentMode = ativo;
-      showToast(state.silentMode ? "Modo sem leitura ligado." : "Modo sem leitura desligado.");
-    } catch (error) {
-      showApiError(error);
-      render();
-    }
+    await connect(String(form.get("apiUrl")).trim().replace(/\/+$/, ""), Number(form.get("idosoId")));
   }
 });
 
 app.addEventListener("input", (event) => {
-  if (event.target.id !== "task-text") return;
-  state.taskText = event.target.value;
-  const preview = app.querySelector("[data-preview-message]");
-  if (preview) {
-    preview.textContent = state.taskText || "Sua mensagem vai aparecer aqui.";
+  if (event.target.id === "task-text") {
+    state.taskText = event.target.value;
+    const preview = app.querySelector("[data-preview-message]");
+    if (preview) preview.textContent = state.taskText || "Sua mensagem vai aparecer aqui.";
+  }
+  if (event.target.id === "scam-text") state.scamText = event.target.value;
+});
+
+app.addEventListener("change", (event) => {
+  if (event.target.id !== "scam-img") return;
+  const file = event.target.files?.[0];
+  if (file) {
+    clearScamImage();
+    state.scamImg = URL.createObjectURL(file);
+    render();
   }
 });
 
-app.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-action]");
-  if (!button) return;
+async function handleAction(button) {
   const action = button.dataset.action;
-
-  if (action === "home") state.screen = "home";
-  else if (action === "make") state.screen = "make";
-  else if (action === "guide") {
-    try {
-      const task = await apiRequest("/tarefas", {
-        method: "POST",
-        body: { idIdoso: state.idosoId, pedido: "Quero pedir minha aposentadoria" },
-      });
-      state.guideTaskId = task.id;
-      state.guideStep = 0;
-      state.guideStepData = await apiRequest(`/tarefas/${task.id}/passo-atual`);
-      state.screen = "guide";
-    } catch (error) {
-      showApiError(error);
-    }
-  } else if (action === "scam") state.screen = "scam";
-  else if (action === "help") {
-    state.screen = "help";
-    try {
-      await loadSupportNetwork();
-    } catch (error) {
-      showApiError(error);
-    }
-  } else if (action === "emergency") {
-    state.screen = "emergency";
-    try {
-      await loadSupportNetwork();
-    } catch (error) {
-      showApiError(error);
-    }
+  switch (action) {
+    case "home": return go("home");
+    case "make": return go("make");
+    case "guideList": return go("guideList");
+    case "scam": return go("scam");
+    case "help": return go("help");
+    case "emergency": return go("emergency");
+    case "reminders": return go("reminders");
+    case "history": return go("history");
+    case "profile": return go("profile");
+    case "settings": return go("settings");
+    case "logout":
+      writeStorage("netinho-session", null);
+      return go("login");
+    case "listen": return beginListening();
+    case "stop-listen": return stopListening();
+    case "speak": return speakScreen();
+    case "confirm-task": return confirmTask();
+    case "cancel-task": return cancelTask();
+    case "undo": return undoTask();
+    case "open-guide": return openGuide(button.dataset.guide);
+    case "advance-guide": return advanceGuide();
+    case "explain-guide": return explainGuide();
+    case "clear-scam-img":
+      clearScamImage();
+      return render();
+    case "notify-family": return notifyFamily();
+    case "toggle-reminder": return toggleReminder(button.dataset.reminder);
+    case "toggle-silent": return toggleSilent();
+    case "samu": return showToast("Esta demonstração não inicia chamadas. Em uma emergência real, ligue 192.");
+    case "close-error":
+      state.error = "";
+      render();
+      if (state.apiConnected === false && await loadAll()) render();
+      return undefined;
+    case "error-home":
+      state.error = "";
+      return go("home");
+    default: return undefined;
   }
-  else if (action === "settings") state.screen = "settings";
-  else if (action === "profile") state.screen = "profile";
-  else if (action === "logout") {
-    state.authenticated = false;
-    localStorage.removeItem("netinho-session");
-    state.screen = "login";
-  }
-  else if (action === "listen") beginListening();
-  else if (action === "speak") {
-    const text = document.querySelector(".face-line h1, .home-header h1")?.textContent;
-    if (text) speak(text);
-  } else if (action === "confirm-task") {
-    try {
-      await apiRequest(`/tarefas/${state.taskDraft.id}/confirmar`, {
-        method: "PUT",
-        body: { resposta: "SIM" },
-      });
-      state.undoUntil = Date.now() + 5000;
-      state.screen = "sent";
-    } catch (error) {
-      showApiError(error);
-    }
-  } else if (action === "cancel-task") {
-    try {
-      await apiRequest(`/tarefas/${state.taskDraft.id}/confirmar`, {
-        method: "PUT",
-        body: { resposta: "NAO" },
-      });
-      state.screen = "home";
-      showToast("Tudo bem. A tarefa foi cancelada.");
-    } catch (error) {
-      showApiError(error);
-    }
-  } else if (action === "undo") {
-    if (Date.now() <= state.undoUntil) {
-      try {
-        await apiRequest(`/tarefas/${state.taskDraft.id}/desfazer`, { method: "PUT" });
-        state.screen = "home";
-        showToast("Tarefa desfeita na API.");
-      } catch (error) {
-        showApiError(error);
-      }
-    } else {
-      showToast("O tempo para desfazer terminou.");
-    }
-  } else if (action === "advance-guide") {
-    try {
-      const result = await apiRequest(`/tarefas/${state.guideTaskId}/avancar`, {
-        method: "PUT",
-        body: { concluido: true },
-      });
-      if (result.concluido) {
-        state.screen = "guideDone";
-        state.guideStepData = null;
-      } else {
-        state.guideStep += 1;
-        state.guideStepData = await apiRequest(`/tarefas/${state.guideTaskId}/passo-atual`);
-      }
-    } catch (error) {
-      showApiError(error);
-    }
-  } else if (action === "explain-guide") {
-    const alternative = guideSteps[state.guideStep]?.alternative
-      || `Procure ${state.guideStepData?.nmPasElemento || "o elemento indicado"} na tela e toque nele.`;
-    speak(alternative);
-    showToast(alternative);
-  } else if (action === "notify-family") {
-    try {
-      const help = await apiRequest("/atendimentos", {
-        method: "POST",
-        body: { idIdoso: state.idosoId, tentativas: 0 },
-      });
-      state.screen = "home";
-      showToast(help.indicacao
-        ? `Pedido registrado. ${help.indicacao} pode atender.`
-        : "Pedido registrado. Não há atendente disponível agora.");
-    } catch (error) {
-      showApiError(error);
-    }
-  } else if (action === "sam-u") {
-    showToast("Esta demonstração não inicia chamadas. Em uma emergência real, ligue 192.");
-  }
-  render();
-});
+}
 
-app.addEventListener("pointerdown", (event) => {
-  if (event.target.id !== "emergency-hold") return;
-  const button = event.target;
-  button.dataset.holdStarted = String(Date.now());
-  button.textContent = "Continue segurando…";
-  button.setPointerCapture(event.pointerId);
-  button.dataset.holdTimer = String(window.setTimeout(() => {
-    apiRequest("/emergencias", {
-      method: "POST",
-      body: { idIdoso: state.idosoId },
-    }).then((result) => {
-      const names = result.contatos.map((contact) => contact.nome).join(", ");
-      showToast(names
-        ? `Pedido de emergência registrado. Contatos: ${names}. ${result.ligar}.`
-        : `Pedido de emergência registrado. ${result.ligar}.`);
-      button.textContent = "Pedido registrado";
-      button.disabled = true;
-    }).catch((error) => {
-      showApiError(error);
-      button.textContent = "Segure por 2 segundos";
-    });
-  }, 2000));
-});
+async function onClick(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button || button.disabled) return;
+  if (button.dataset.busy) return;
+  button.dataset.busy = "1";
+  try {
+    await handleAction(button);
+  } finally {
+    delete button.dataset.busy;
+  }
+}
 
-app.addEventListener("pointerup", (event) => {
-  if (event.target.id !== "emergency-hold") return;
-  const button = event.target;
-  if (!button.disabled) {
-    window.clearTimeout(Number(button.dataset.holdTimer));
-    button.textContent = "Segure por 2 segundos";
+app.addEventListener("click", onClick);
+overlay.addEventListener("click", onClick);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (state.listening) stopListening();
+  else if (state.error) {
+    state.error = "";
+    render();
   }
 });
 
-app.addEventListener("pointercancel", (event) => {
-  if (event.target.id !== "emergency-hold") return;
-  const button = event.target;
-  window.clearTimeout(Number(button.dataset.holdTimer));
-  if (!button.disabled) button.textContent = "Segure por 2 segundos";
-});
+/* ---------------------------------------------------------------- Início */
 
 render();
-loadElder().then(() => {
-  if (state.screen === "home") render();
-});
+if (state.screen !== "login") {
+  loadAll().then(() => render());
+}
