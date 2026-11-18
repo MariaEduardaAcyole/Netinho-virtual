@@ -191,6 +191,27 @@ Para limpar os arquivos compilados e executar os testes novamente:
 mvn clean test
 ```
 
+Os testes unitários de BO, utilitarios, DAO e Controller podem ser executados
+sem contato com o banco:
+
+```powershell
+mvn test
+```
+
+Os testes de integracao com Oracle ficam desabilitados por padrao para evitar
+alteracoes no schema compartilhado. Com `backend/.env` configurado e o schema
+acessivel, execute-os com:
+
+```powershell
+$env:RUN_ORACLE_TESTS = "true"
+mvn test
+Remove-Item Env:RUN_ORACLE_TESTS
+```
+
+Os testes Oracle usam transacoes com rollback e fazem insert, update, select,
+listagem e delete em dados temporarios. Os dados sao removidos antes do fim
+de cada teste.
+
 Para gerar o JAR executável:
 
 ```powershell
