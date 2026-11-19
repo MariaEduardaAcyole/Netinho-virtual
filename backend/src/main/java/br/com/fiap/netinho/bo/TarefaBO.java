@@ -28,11 +28,19 @@ public class TarefaBO {
         this.tarefaDAO=tarefaDAO;this.idosoDAO=idosoDAO;this.redeDAO=redeDAO;this.familiarDAO=familiarDAO;this.guiaDAO=guiaDAO;this.passoDAO=passoDAO;
     }
 
+    /** Qualquer pedido que envolva dinheiro e recusado, inclusive como o reconhecimento de voz escreve "pix". */
+    static final Pattern PEDIDO_FINANCEIRO=Pattern.compile(
+        "\\b(pix|pics|piks|pixe|piques|piquis)\\b"
+        +"|\\b(pag(a|ar|ue|uei|ou|amento|amentos)|boleto|boletos|fatura)\\b"
+        +"|\\b(transfer\\w*|deposit\\w*|sac(a|ar|que)|emprest\\w*)\\b"
+        +"|\\b(dinheiro|grana|reais|centavos)\\b|r\\$|\\d+\\s*(mil|real|reais|conto|contos)\\b"
+        +"|\\b(banco|bancaria|bancario|cartao|credito|debito|senha do banco)\\b"
+        +"|\\b(nubank|itau|bradesco|santander|caixa economica|caixa tem|picpay|mercado pago|banco do brasil)\\b");
+
     public Tarefa criar(Long idIdoso,String pedido){
         Idoso idoso=idosoDAO.buscarPorId(idIdoso).orElseThrow(()->new RecursoNaoEncontradoException("Idoso nao encontrado."));
         String norma=normalizar(pedido);
-        String[] bloqueios={"pix","banco","pagamento","transferencia","nubank","itau","bradesco","caixa","picpay","mercado pago"};
-        for(String b:bloqueios) if(norma.contains(b)){
+        if(PEDIDO_FINANCEIRO.matcher(norma).find()){
             Tarefa x=salvarRecusada(idoso,pedido,TipoModoTarefa.FAZ_PRA_MIM,null,"Pedido financeiro bloqueado por seguranca.");
             throw new RegraNegocioException("Pedido recusado: pagamentos e dados bancarios nao podem ser executados.");
         }

@@ -36,6 +36,10 @@ class TarefaBOTest {
         when(idosoDAO.buscarPorId(1L)).thenReturn(Optional.of(i));when(tarefaDAO.inserir(any())).thenReturn(100L);
         assertThrows(RegraNegocioException.class,()->bo().criar(1L,"Quero fazer um Pix"));
         assertThrows(RegraNegocioException.class,()->bo().criar(1L,"Digite minha senha"));
+        for(String pedido:List.of("Faz um PIX pro Rafael","faz um pics pra Beatriz","Manda 50 reais pro Rafael",
+                "Paga o boleto da luz","Transfere dinheiro pra minha neta","Faz um píx","manda R$ 20 pro Rafael",
+                "Paga a conta pra mim","Deposita 100 pro meu filho"))
+            assertThrows(RegraNegocioException.class,()->bo().criar(1L,pedido),pedido);
     }
     @Test void detectaContatoAmbiguo(){
         Idoso i=new Idoso();i.setId(1L);
@@ -65,7 +69,7 @@ class TarefaBOTest {
                 "Manda mensagem para o Rafael dizendo oi","Manda uma mensagem pra minha neta dizendo oi",
                 "Avisa pro meu filho que cheguei","manda mensagem pra beatriz",
                 "manda mensagem Rafael chego as 3","Fala com a Beatriz que estou bem","Avisa o Rafael que cheguei",
-                "Manda mensagem para casa do Rafael")){
+                "Manda mensagem para casa do Rafael","Avisa o Rafael que a caixa de remedio acabou","Fala pro Rafael que e real, chego as 3")){
             Tarefa t=bo().criar(1L,pedido);
             assertEquals(StatusTarefa.AGUARDANDO,t.getStatus(),pedido);
         }
