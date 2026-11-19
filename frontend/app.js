@@ -1608,6 +1608,11 @@ app.addEventListener("submit", async (event) => {
 app.addEventListener("input", (event) => {
   if (event.target.id === "task-text") {
     state.taskText = event.target.value;
+    // A pessoa está corrigindo o pedido: o aviso de erro anterior já não vale.
+    if (state.taskError) {
+      state.taskError = "";
+      app.querySelector(".task-error")?.remove();
+    }
     updateMakePreview();
   }
   if (event.target.id === "scam-text") state.scamText = event.target.value;

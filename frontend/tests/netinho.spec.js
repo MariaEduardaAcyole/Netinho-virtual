@@ -127,8 +127,10 @@ test("Faz pra mim: contato desconhecido mostra aviso e deixa escolher o contato"
   await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByRole("alert")).toContainText("Não achei essa pessoa");
   await expect(page.getByText("Não consegui conectar.")).toHaveCount(0);
+  await page.getByLabel("Pode escrever ou falar").fill("Manda mensagem pra Joana dizendo oi!");
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await page.getByRole("button", { name: /Rafael/ }).click();
-  await expect(page.getByLabel("Pode escrever ou falar")).toHaveValue("Manda mensagem pra Rafael dizendo oi");
+  await expect(page.getByLabel("Pode escrever ou falar")).toHaveValue("Manda mensagem pra Rafael dizendo oi!");
   await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByRole("heading", { name: "Mando para Rafael?" })).toBeVisible();
   expect(chamadas.filter((c) => c.caminho === "/tarefas").length).toBe(2);
