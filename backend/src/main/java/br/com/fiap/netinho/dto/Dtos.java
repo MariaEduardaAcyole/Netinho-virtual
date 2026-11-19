@@ -17,4 +17,5 @@ public class Dtos {
     public record RedeApoioRequest(Long idFamiliar, String parentesco, Integer ordemContato, boolean autorizado) {}
     public record StatusRequest(String status) {}
     public record ModoSemLeituraRequest(boolean ativo) {}
+    public record ConversaRequest(Long idIdoso, String texto, java.util.List<br.com.fiap.netinho.bo.AssistenteIA.Mensagem> historico) {}
 }

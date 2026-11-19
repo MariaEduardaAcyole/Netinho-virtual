@@ -51,6 +51,12 @@ async function simularApi(page, { fora = false, sessaoExpirada = false } = {}) {
       return json({ nmPasElemento: passos[passo][0], txPasInstrucao: passos[passo][1] });
     }
     if (p === "/tarefas/77/avancar") { passo += 1; return json({ concluido: passo >= 2 }); }
+    if (p === "/conversa") {
+      if (/socorro/i.test(corpo.texto)) return json({ resposta: "Vou abrir a emergência agora.", acao: "EMERGENCIA" });
+      if (/consulta/i.test(corpo.texto)) return json({ resposta: "Sua consulta com o clínico é dia 25 de março, às 14h.", acao: "LEMBRETES", ia: true });
+      if (/beijo/i.test(corpo.texto)) return json({ resposta: "Que carinho! Preparo a mensagem para o Rafael.", acao: "FAZ_PRA_MIM", pedido: "Manda mensagem pro Rafael dizendo um beijo", ia: true });
+      return json({ resposta: "Oi, Maria! Estou aqui com você.", acao: "NENHUMA", ia: true });
+    }
     if (p === "/golpes/verificar") return json({ nivel: "ALTO", motivo: "Pede Pix com urgência.", oQueFazer: "Não envie dinheiro." });
     if (p === "/golpes/verificar-imagem") return json({ nivel: "MEDIO", motivo: "O print pede para clicar em um link.", oQueFazer: "Confirme com a família.", imagemAnalisada: true });
     if (p === "/emergencias") return json({ contatos: [{ nome: "Rafael Silva", ordem: 1 }], ligar: "192 - SAMU" });
@@ -58,6 +64,14 @@ async function simularApi(page, { fora = false, sessaoExpirada = false } = {}) {
     return route.fulfill({ status: 204, body: "" });
   });
   return chamadas;
+}
+
+// O navegador de teste não tem microfone: simula um navegador sem ditado por voz.
+async function semDitadoPorVoz(page) {
+  await page.addInitScript(() => {
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+  });
 }
 
 async function entrar(page) {
@@ -148,6 +162,43 @@ test("Faz pra mim: entende o contato sem pra/para e mostra a prévia certa", asy
   await expect(page.getByRole("heading", { name: "Mando para Rafael?" })).toBeVisible();
   await page.getByRole("button", { name: "Sim" }).click();
   await expect(page.getByRole("heading", { name: "Pronto! Rafael já recebeu." })).toBeVisible();
+});
+
+test("Netinho com IA: o microfone abre a conversa sem trocar de tela", async ({ page }) => {
+  await semDitadoPorVoz(page);
+  const chamadas = await simularApi(page);
+  await entrar(page);
+  await page.getByRole("button", { name: "Falar com o Netinho" }).click();
+  const conversa = page.getByRole("dialog", { name: /Conversa com o Netinho/ });
+  await expect(conversa).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Oi, Maria!" })).toBeAttached(); // continua no início
+  await conversa.getByLabel("Escreva para o Netinho").fill("que dia é minha consulta?");
+  await conversa.getByRole("button", { name: "Enviar" }).click();
+  await expect(conversa.getByText("Sua consulta com o clínico é dia 25 de março, às 14h.")).toBeVisible();
+  // manda a conversa anterior junto, para o Netinho lembrar do assunto
+  await conversa.getByLabel("Escreva para o Netinho").fill("e quero mandar um beijo pro meu filho");
+  await conversa.getByRole("button", { name: "Enviar" }).click();
+  await expect(conversa.getByText(/Preparo a mensagem para o Rafael/)).toBeVisible();
+  const ultima = chamadas.filter((c) => c.caminho === "/conversa").pop();
+  expect(ultima.corpo.historico.map((h) => h.papel)).toEqual(["user", "assistant"]);
+  await conversa.getByRole("button", { name: "Abrir Faz pra mim" }).click();
+  await expect(conversa).toHaveCount(0);
+  await expect(page.getByLabel("Pode escrever ou falar")).toHaveValue("Manda mensagem pro Rafael dizendo um beijo");
+});
+
+test("Netinho com IA: emergência abre direto e Esc fecha a conversa", async ({ page }) => {
+  await semDitadoPorVoz(page);
+  await simularApi(page);
+  await entrar(page);
+  await page.getByRole("button", { name: "Falar com o Netinho" }).click();
+  const conversa = page.getByRole("dialog", { name: /Conversa com o Netinho/ });
+  await page.keyboard.press("Escape");
+  await expect(conversa).toHaveCount(0);
+  await page.getByRole("button", { name: "Falar com o Netinho" }).click();
+  await conversa.getByLabel("Escreva para o Netinho").fill("socorro");
+  await conversa.getByRole("button", { name: "Enviar" }).click();
+  await expect(page.locator("#hold")).toBeVisible();
+  await expect(conversa).toHaveCount(0);
 });
 
 test("Me ensina: só guias ativos, passo a passo até concluir", async ({ page }) => {

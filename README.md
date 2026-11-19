@@ -126,6 +126,10 @@ AUTH_SECRET=<texto_aleatorio_longo>
 # Opcional: análise de prints no "É golpe?" com o Claude. Sem a chave, o app
 # usa só as regras de texto e responde com cautela (risco MÉDIO) para imagens.
 ANTHROPIC_API_KEY=<chave_da_anthropic>
+# Alternativa ao Claude: modelo de visão da NVIDIA (build.nvidia.com). Só é usada
+# quando não há ANTHROPIC_API_KEY. Modelo padrão: nvidia/nemotron-3.5-super-vl-120b-a12b.
+# A mesma chave liga a conversa do botão de falar (modelo google/gemma-4-31b-it).
+NVIDIA_API_KEY=<chave_da_nvidia>
 # Acesso de administração aos CRUDs (mínimo 32 caracteres, aleatório).
 # Sem ele, só o app do idoso consegue usar a API.
 ADMIN_TOKEN=<outro_texto_aleatorio_longo>

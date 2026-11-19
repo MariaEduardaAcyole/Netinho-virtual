@@ -110,6 +110,7 @@ const state = {
 
   taskText: "",
   taskError: "",
+  chat: { open: false, thinking: false, turns: [], draft: "", version: 0 },
   draft: null,
   undoLeft: 0,
 
@@ -249,6 +250,7 @@ function endSession(message) {
   state.reminders = [];
   state.history = null;
   state.error = "";
+  state.chat = { open: false, thinking: false, turns: [], draft: "", version: state.chat.version + 1 };
   writeStorage("netinho-token", null);
   writeStorage("netinho-idoso-id", null);
   go("login");
@@ -271,6 +273,7 @@ async function loadElder() {
   const elder = await apiRequest(`/idosos/${state.idosoId}`);
   state.idosoNome = elder.nome || state.idosoNome;
   state.silentMode = Boolean(elder.semLeitura);
+  state.assistantName = elder.nomeAssistente || "Netinho";
 }
 
 async function loadSupportNetwork() {
@@ -450,12 +453,132 @@ function routeSpeech(text) {
     state.taskText = text;
     return render();
   }
-  if (/emerg|socorro/.test(lower)) return go("emergency");
-  if (/golpe|suspeit|estranh/.test(lower)) return go("scam");
-  if (/ensina|aprend|aposentadoria|como (eu )?fa/.test(lower)) return go("guideList");
-  if (/ajuda|chamar algu/.test(lower)) return go("help");
-  state.taskText = text;
-  go("make");
+  // Emergência não espera ninguém: abre direto.
+  if (/emerg|socorro|samu|ambul[aâ]ncia|passando mal|dor no peito|falta de ar/.test(lower)) {
+    closeChat();
+    return go("emergency");
+  }
+  return askNetinho(text);
+}
+
+/* ---------------------------------------------------------------- Conversa com o Netinho */
+
+const CHAT_ACTIONS = {
+  FAZ_PRA_MIM: { label: "Abrir Faz pra mim", icon: "message" },
+  ME_ENSINA: { label: "Abrir o passo a passo", icon: "book" },
+  GOLPE: { label: "Abrir É golpe?", icon: "shield" },
+  AJUDA: { label: "Pedir ajuda à família", icon: "users" },
+  LEMBRETES: { label: "Ver meus lembretes", icon: "bell" },
+  EMERGENCIA: { label: "Abrir emergência", icon: "alert" },
+};
+
+function chatChanged() {
+  state.chat.version += 1;
+  render();
+}
+
+function openChat() {
+  state.chat.open = true;
+  chatChanged();
+}
+
+function closeChat() {
+  if (!state.chat.open) return;
+  state.chat.open = false;
+  state.chat.thinking = false;
+  try { window.speechSynthesis?.cancel(); } catch { /* sem voz */ }
+  chatChanged();
+}
+
+async function askNetinho(text) {
+  const fala = String(text || "").trim();
+  if (!fala || state.chat.thinking) return;
+  const historico = state.chat.turns.slice(-8).map((t) => ({ papel: t.from === "me" ? "user" : "assistant", texto: t.text }));
+  state.chat.open = true;
+  state.chat.thinking = true;
+  state.chat.draft = "";
+  state.chat.turns.push({ from: "me", text: fala });
+  chatChanged();
+  let reply;
+  try {
+    reply = await apiRequest("/conversa", { method: "POST", body: { idIdoso: state.idosoId, texto: fala, historico } });
+  } catch (error) {
+    if (error instanceof SessionExpiredError) return;
+    reply = {
+      resposta: error instanceof ApiError ? error.message : "Não consegui falar com a internet agora. Tente de novo daqui a pouco, ou toque em uma das opções da tela.",
+      acao: "NENHUMA",
+    };
+  }
+  state.chat.thinking = false;
+  if (!state.chat.open) return; // a pessoa fechou enquanto o Netinho pensava
+  state.chat.turns.push({ from: "netinho", text: reply.resposta, action: reply.acao, idGuia: reply.idGuia, pedido: reply.pedido });
+  if (state.chat.turns.length > 20) state.chat.turns = state.chat.turns.slice(-20);
+  chatChanged();
+  speak(reply.resposta);
+  if (reply.acao === "EMERGENCIA") {
+    closeChat();
+    go("emergency");
+  }
+}
+
+async function runChatAction(index) {
+  const turn = state.chat.turns[Number(index)];
+  if (!turn) return;
+  closeChat();
+  switch (turn.action) {
+    case "FAZ_PRA_MIM":
+      state.taskText = turn.pedido || "";
+      state.taskError = "";
+      return go("make");
+    case "ME_ENSINA":
+      if (turn.idGuia != null) {
+        if (!state.guides) await refreshGuides();
+        if (state.guides?.some((g) => String(g.id) === String(turn.idGuia))) return openGuide(turn.idGuia);
+      }
+      return go("guideList");
+    case "GOLPE": return go("scam");
+    case "AJUDA": return go("help");
+    case "LEMBRETES": return go("reminders");
+    case "EMERGENCIA": return go("emergency");
+    default: return undefined;
+  }
+}
+
+function renderChat() {
+  const turns = state.chat.turns;
+  const offset = state.chat.turns.length - turns.length;
+  const last = state.chat.turns[state.chat.turns.length - 1];
+  const bubbles = turns.map((t, i) => {
+    const index = offset + i;
+    const action = t.from === "netinho" && CHAT_ACTIONS[t.action] && t === last
+      ? `<button class="btn btn-blue chat-action" data-action="chat-action" data-turn="${index}">${icon(CHAT_ACTIONS[t.action].icon, 2.4)}${CHAT_ACTIONS[t.action].label}</button>`
+      : "";
+    return `<div class="chat-turn ${t.from}">
+        ${t.from === "netinho" ? `<span class="chat-who">${escapeHtml(state.assistantName || "Netinho")}</span>` : ""}
+        <p class="chat-bubble">${escapeHtml(t.text)}</p>
+        ${action}
+      </div>`;
+  }).join("");
+  const empty = state.chat.turns.length ? "" : `<p class="chat-empty">Pergunte o que quiser. Por exemplo: “que dia é minha consulta?” ou “isso é golpe?”.</p>`;
+  const thinking = state.chat.thinking
+    ? `<div class="chat-turn netinho"><p class="chat-bubble thinking" aria-label="Pensando"><span></span><span></span><span></span></p></div>`
+    : "";
+  return `
+      <div class="backdrop" role="dialog" aria-modal="true" aria-label="Conversa com o ${escapeHtml(state.assistantName || "Netinho")}">
+        <div class="sheet chat-sheet">
+          <div class="chat-head">
+            <strong class="sheet-title">${escapeHtml(state.assistantName || "Netinho")}</strong>
+            <button class="round-btn chat-close" data-action="close-chat" aria-label="Fechar conversa">${icon("close", 2.6)}</button>
+          </div>
+          <div class="chat-log" aria-live="polite">${empty}${bubbles}${thinking}</div>
+          <form id="chat-form" class="chat-form">
+            <label class="sr-only" for="chat-text">Escreva para o Netinho</label>
+            <input class="field" id="chat-text" name="chatText" type="text" autocomplete="off" placeholder="Ou escreva aqui…" value="${escapeHtml(state.chat.draft)}">
+            <button class="btn btn-ink chat-send" type="submit" aria-label="Enviar">${icon("arrow", 2.6)}</button>
+          </form>
+          <button class="btn btn-pink chat-mic" data-action="listen" ${state.chat.thinking ? "disabled" : ""}>${icon("mic", 2.4)}Falar de novo</button>
+        </div>
+      </div>`;
 }
 
 function stopListening() {
@@ -473,7 +596,12 @@ function beginListening() {
   if (state.listening) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
-    showToast("Ditado por voz indisponível neste navegador. Você pode escrever o pedido.");
+    if (state.screen === "make" || state.screen === "scam") {
+      showToast("Ditado por voz indisponível neste navegador. Você pode escrever o pedido.");
+    } else {
+      openChat();
+      showToast("Este navegador não ouve a voz. Pode escrever para o Netinho.");
+    }
     return;
   }
 
@@ -508,7 +636,9 @@ function beginListening() {
     finished = true;
     recognition = null;
     state.listening = false;
-    render();
+    // Microfone bloqueado ou sem rede: abre a conversa para a pessoa escrever.
+    if (!["aborted", "no-speech"].includes(event.error) && state.screen !== "make" && state.screen !== "scam") state.chat.open = true;
+    chatChanged();
     if (event.error !== "aborted") showToast(speechErrorMessage(event.error));
   };
   current.onend = () => {
@@ -1099,6 +1229,7 @@ function renderOverlay() {
         </div>
       </div>`;
   }
+  if (state.chat.open && state.screen !== "login") return renderChat();
   return "";
 }
 
@@ -1123,10 +1254,20 @@ function render() {
   if (changed) section?.classList.add("enter");
 
   const previousOverlay = overlay.dataset.kind || "";
-  overlay.innerHTML = renderOverlay();
-  overlay.dataset.kind = state.listening ? "listening" : state.error ? "error" : "";
-  if (overlay.dataset.kind && overlay.dataset.kind !== previousOverlay) {
-    overlay.querySelector(".sheet .btn")?.focus({ preventScroll: true });
+  const kind = state.listening ? "listening" : state.error ? "error" : state.chat.open && screen !== "login" ? "chat" : "";
+  const version = kind === "chat" ? String(state.chat.version) : "";
+  // A conversa só é redesenhada quando muda, para não apagar o que a pessoa está digitando.
+  if (kind !== previousOverlay || version !== (overlay.dataset.version || "")) {
+    overlay.innerHTML = renderOverlay();
+    // Mensagem nova na mesma conversa: atualiza sem repetir a animação de entrada.
+    if (kind && kind === previousOverlay) overlay.querySelector(".sheet")?.classList.add("still");
+    overlay.dataset.kind = kind;
+    overlay.dataset.version = version;
+    const log = overlay.querySelector(".chat-log");
+    if (log) log.scrollTop = log.scrollHeight;
+    if (kind && kind !== previousOverlay) {
+      (overlay.querySelector(".chat-action") || overlay.querySelector(".sheet .btn"))?.focus({ preventScroll: true });
+    }
   }
 
   toastElement.classList.toggle("above-nav", hasNav());
@@ -1653,6 +1794,8 @@ async function handleAction(button) {
     case "stop-listen": return stopListening();
     case "speak": return speakScreen();
     case "pick-contact": return pickContact(button.dataset.name);
+    case "chat-action": return runChatAction(button.dataset.turn);
+    case "close-chat": return closeChat();
     case "confirm-task": return confirmTask();
     case "cancel-task": return cancelTask();
     case "undo": return undoTask();
@@ -1692,6 +1835,14 @@ async function onClick(event) {
 
 app.addEventListener("click", onClick);
 overlay.addEventListener("click", onClick);
+overlay.addEventListener("submit", (event) => {
+  if (event.target.id !== "chat-form") return;
+  event.preventDefault();
+  askNetinho(String(new FormData(event.target).get("chatText") || ""));
+});
+overlay.addEventListener("input", (event) => {
+  if (event.target.id === "chat-text") state.chat.draft = event.target.value;
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
@@ -1699,7 +1850,7 @@ document.addEventListener("keydown", (event) => {
   else if (state.error) {
     state.error = "";
     render();
-  }
+  } else if (state.chat.open) closeChat();
 });
 
 /* ---------------------------------------------------------------- Início */

@@ -13,21 +13,18 @@ import com.anthropic.models.messages.StructuredMessageCreateParams;
 import com.anthropic.models.messages.TextBlockParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * Analisa o print com o Claude (SDK oficial anthropic-java) e devolve um resultado estruturado.
- * Sem ANTHROPIC_API_KEY a analise fica desligada e o GolpeBO usa so as regras de texto.
+ * Escolhido por AnaliseImagemConfig quando ANTHROPIC_API_KEY esta configurada.
  */
-@Service
 public class ClaudeAnaliseImagem implements AnaliseImagem {
     private static final Logger LOG = LoggerFactory.getLogger(ClaudeAnaliseImagem.class);
 
-    private static final String INSTRUCOES = """
+    static final String INSTRUCOES = """
             Voce ajuda pessoas idosas no Brasil a descobrir se uma mensagem recebida no celular e golpe.
             Voce recebe a foto ou print da mensagem (WhatsApp, SMS, e-mail, rede social ou site) e, as vezes,
             um comentario da pessoa. Leia o que aparece na imagem e avalie o risco de golpe.
@@ -47,8 +44,7 @@ public class ClaudeAnaliseImagem implements AnaliseImagem {
     private final AnthropicClient client;
     private final String modelo;
 
-    public ClaudeAnaliseImagem(@Value("${anthropic.api-key:}") String chave,
-                               @Value("${anthropic.model:claude-opus-5-5}") String modelo) {
+    public ClaudeAnaliseImagem(String chave, String modelo) {
         this.modelo = modelo;
         if (chave == null || chave.isBlank()) {
             this.client = null;
