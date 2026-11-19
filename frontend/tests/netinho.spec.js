@@ -51,6 +51,7 @@ async function simularApi(page, { fora = false, sessaoExpirada = false } = {}) {
       return json({ nmPasElemento: passos[passo][0], txPasInstrucao: passos[passo][1] });
     }
     if (p === "/tarefas/77/avancar") { passo += 1; return json({ concluido: passo >= 2 }); }
+    if (p === "/voz") return route.fulfill({ status: 204, body: "" }); // sem voz natural: o app usa a do aparelho
     if (p === "/conversa") {
       if (/socorro/i.test(corpo.texto)) return json({ resposta: "Vou abrir a emergência agora.", acao: "EMERGENCIA" });
       if (/consulta/i.test(corpo.texto)) return json({ resposta: "Sua consulta com o clínico é dia 25 de março, às 14h.", acao: "LEMBRETES", ia: true });
@@ -181,6 +182,11 @@ test("Netinho com IA: o microfone abre a conversa sem trocar de tela", async ({ 
   await expect(conversa.getByText(/Preparo a mensagem para o Rafael/)).toBeVisible();
   const ultima = chamadas.filter((c) => c.caminho === "/conversa").pop();
   expect(ultima.corpo.historico.map((h) => h.papel)).toEqual(["user", "assistant"]);
+  await expect(conversa.getByRole("button", { name: "Ouvir de novo" })).toHaveCount(1); // só na última resposta
+  // a resposta vai para a voz natural do servidor, já limpa para ser falada ("14h" vira "14 horas")
+  await expect.poll(() => chamadas.filter((c) => c.caminho === "/voz").length).toBeGreaterThan(0);
+  expect(chamadas.find((c) => c.caminho === "/voz").corpo.texto).toBe("Sua consulta com o clínico é dia 25 de março, às 14 horas.");
+  await conversa.getByRole("button", { name: "Ouvir de novo" }).click();
   await conversa.getByRole("button", { name: "Abrir Faz pra mim" }).click();
   await expect(conversa).toHaveCount(0);
   await expect(page.getByLabel("Pode escrever ou falar")).toHaveValue("Manda mensagem pro Rafael dizendo um beijo");

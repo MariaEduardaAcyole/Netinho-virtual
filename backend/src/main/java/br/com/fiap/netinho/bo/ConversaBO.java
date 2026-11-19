@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
  */
 @Service
 public class ConversaBO {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ConversaBO.class);
     public enum Acao { NENHUMA, FAZ_PRA_MIM, ME_ENSINA, GOLPE, AJUDA, LEMBRETES, EMERGENCIA }
 
     static final Pattern EMERGENCIA = Pattern.compile(
@@ -26,6 +27,11 @@ public class ConversaBO {
     /** A pessoa conta que recebeu um pedido (mensagem, ligacao) em vez de pedir para o Netinho fazer. */
     static final Pattern RECEBEU = Pattern.compile(
             "\\b(recebi|chegou|mandaram|me pediram|pediram|pedindo|pede|ligaram|ligou|disseram|falaram|mensagem|ganhei|premio|golpe)\\b");
+    /** Promessas que o Netinho nao pode fazer: ele so prepara, quem envia e a pessoa. */
+    static final Pattern PROMESSA = Pattern.compile(
+            "\\b(eu )?(ja )?(mandei|enviei|vou (mandar|enviar|ligar|transferir|pagar)|liguei|estou (mandando|enviando|ligando))\\b");
+    private static final Pattern CODIGO_ACAO = Pattern.compile("\\b(FAZ_PRA_MIM|ME_ENSINA|GOLPE|AJUDA|LEMBRETES|NENHUMA|EMERGENCIA)\\b");
+    private static final Pattern EMOJI = Pattern.compile("[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{FE0F}\\x{200D}]");
     private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
     private static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy 'as' HH:mm");
     private static final int MAX_TEXTO = 500, MAX_HISTORICO = 8;
@@ -72,6 +78,9 @@ public class ConversaBO {
                     if (m == null || m.texto() == null || m.texto().isBlank()) continue;
                     String papel = "assistant".equals(m.papel()) ? "assistant" : "user";
                     String t = m.texto().length() > MAX_TEXTO ? m.texto().substring(0, MAX_TEXTO) : m.texto();
+                    // As falas antigas do Netinho voltam no mesmo formato JSON pedido; em texto puro o modelo
+                    // passava a imitar o texto e abandonava o JSON.
+                    if ("assistant".equals(papel)) t = json.createObjectNode().put("resposta", t).put("acao", "NENHUMA").toString();
                     conversa.add(new AssistenteIA.Mensagem(papel, t));
                 }
             }
@@ -106,7 +115,8 @@ public class ConversaBO {
                 Agora e %s (horario de Brasilia).
 
                 Como falar: portugues do Brasil, frases curtas e palavras simples, no maximo 3 frases, sem emojis,
-                sem markdown. Chame a pessoa de %s. Seja calmo e acolhedor.
+                sem markdown, com pontuacao correta (a resposta vai ser lida em voz alta). Chame a pessoa de %s.
+                Seja calmo e acolhedor. Nunca escreva os nomes das acoes (como GOLPE ou FAZ_PRA_MIM) na resposta.
 
                 O que o app sabe fazer (sugira so isto, nunca invente outras coisas):
                 - FAZ_PRA_MIM: mandar uma mensagem para um contato da lista abaixo. Preencha "pedido" no formato
@@ -144,7 +154,14 @@ public class ConversaBO {
     /** Le o JSON do modelo e confere tudo antes de devolver ao app. */
     Optional<Map<String, Object>> interpretar(String conteudo, List<Guia> guias, String fala) {
         int ini = conteudo.indexOf('{'), fim = conteudo.lastIndexOf('}');
-        if (ini < 0 || fim <= ini) return Optional.empty();
+        if (ini < 0 || fim <= ini) {
+            // Veio so o texto, sem JSON: aproveita a fala da IA e escolhe o botao pelas palavras-chave.
+            String texto = conteudo.replaceAll("(?s)<think>.*?</think>", "").trim();
+            if (texto.isEmpty() || texto.length() > 600) return Optional.empty();
+            Map<String, Object> regra = porPalavrasChave(fala, TarefaBO.normalizar(fala), false);
+            Acao acao = Acao.valueOf(regra.get("acao").toString());
+            return Optional.of(resposta(limparFala(texto, acao), acao, null, (String) regra.get("pedido"), true));
+        }
         try {
             JsonNode n = json.readTree(conteudo.substring(ini, fim + 1));
             String texto = n.path("resposta").asText("").trim();
@@ -163,15 +180,39 @@ public class ConversaBO {
                 return Optional.of(resposta("Por segurança, eu não faço Pix, pagamentos nem nada de banco. Se alguém te pediu dinheiro, pode ser golpe.",
                         Acao.GOLPE, null, null, true));
             }
-            return Optional.of(resposta(texto, acao, idGuia, pedido, true));
+            return Optional.of(resposta(limparFala(texto, acao), acao, idGuia, pedido, true));
         } catch (Exception e) {
+            LOG.warn("Nao deu para ler a resposta da IA ({}): {}", e.toString(), conteudo.substring(0, Math.min(300, conteudo.length())));
             return Optional.empty();
         }
     }
 
+    /**
+     * Ultima conferencia do que vai ser falado: tira emoji, markdown e codigos internos e troca
+     * promessas ("eu mandei") pela frase padrao da acao, porque o app nunca envia nada sozinho.
+     */
+    static String limparFala(String texto, Acao acao) {
+        String t = EMOJI.matcher(texto).replaceAll("").replaceAll("[*_#`]+", "").replaceAll("\\s+", " ").trim();
+        boolean codigo = CODIGO_ACAO.matcher(t).find();
+        if (codigo || PROMESSA.matcher(TarefaBO.normalizar(t)).find()) {
+            String padrao = switch (acao) {
+                case FAZ_PRA_MIM -> "Eu preparei a mensagem. Toque no botão abaixo para conferir antes de enviar.";
+                case ME_ENSINA -> "Eu te ensino passo a passo. Toque no botão abaixo para começar.";
+                case GOLPE -> "Cuidado, isso pode ser golpe. Toque no botão abaixo para a gente verificar juntos.";
+                case AJUDA -> "Posso avisar sua família. Toque no botão abaixo.";
+                case LEMBRETES -> "Toque no botão abaixo para ver seus lembretes.";
+                default -> null;
+            };
+            if (padrao != null) return padrao;
+            if (codigo) t = CODIGO_ACAO.matcher(t).replaceAll("").replaceAll("\\s+", " ").trim();
+        }
+        if (!t.isEmpty() && !t.matches("(?s).*[.!?]$")) t = t + ".";
+        return t.isEmpty() ? "Pode falar de novo?" : t;
+    }
+
     /** Sem IA: mesmas palavras-chave que o app usava antes, agora com uma resposta falada. */
     Map<String, Object> porPalavrasChave(String fala, String norma, boolean iaFalhou) {
-        if (Pattern.compile("golpe|suspeit|estranh|premio|troquei de numero").matcher(norma).find())
+        if (Pattern.compile("golpe|suspeit|estranh|premio|troquei de numero|ganhei|sorteio|\\b(recebi|chegou|me mandaram)\\b.*\\b(mensagem|ligacao|link|codigo)\\b").matcher(norma).find())
             return resposta("Vamos ver juntos se é golpe. Toque no botão abaixo.", Acao.GOLPE, null, null, false);
         if (Pattern.compile("ensina|aprend|aposentadoria|como (eu )?fa|extrato").matcher(norma).find())
             return resposta("Eu te ensino passo a passo. Toque no botão abaixo para escolher.", Acao.ME_ENSINA, null, null, false);

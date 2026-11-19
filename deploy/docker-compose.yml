@@ -3,6 +3,7 @@
 # recebe HTTPS em netinho.46-202-147-251.sslip.io e repassa:
 #   /api/*  -> netinho-api:8080 (sem o prefixo /api)
 #   resto   -> netinho-web:80   (arquivos de frontend/)
+# A voz natural (voz/) fica so na rede interna: apenas a API chama netinho-voz:8000.
 # Saude: o Dockerfile da API tem HEALTHCHECK em /saude; deploy/vigia.sh (cron) reinicia se ficar unhealthy.
 # Subir/atualizar:  docker compose -p netinho up -d --build
 services:
@@ -22,6 +23,20 @@ services:
     networks:
       web:
         aliases: [netinho-api]
+      interno:
+
+  voz:
+    build: ./voz
+    image: netinho-voz:local
+    container_name: netinho-voz
+    restart: unless-stopped
+    env_file:
+      - path: ../backend/.env
+        required: false
+    mem_limit: 160m
+    networks:
+      interno:
+        aliases: [netinho-voz]
 
   web:
     image: nginx:1.27-alpine
@@ -44,3 +59,4 @@ networks:
   web:
     external: true
     name: devlib_web
+  interno: {}

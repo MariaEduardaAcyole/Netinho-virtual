@@ -244,6 +244,8 @@ function startSession(login) {
 }
 
 function endSession(message) {
+  stopSpeaking();
+  voiceCache.clear();
   state.token = "";
   state.idosoId = null;
   state.supportContacts = [];
@@ -410,16 +412,172 @@ async function loadAll() {
 
 /* ---------------------------------------------------------------- Voz */
 
-function speak(text, queue = false) {
+// Vozes mais naturais primeiro: as "Natural/Online/Neural" (Edge, Windows) e as do Google soam
+// muito melhor que as vozes antigas do sistema. Funciona offline com o que o aparelho tiver.
+const BEST_VOICES = [/natural/i, /online/i, /neural/i, /google/i, /francisca|thalita|luciana|camila|vit[oó]ria|fernanda/i, /daniel|felipe|ant[oô]nio/i];
+let chosenVoice = null;
+
+function pickVoice() {
+  if (!("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  const lang = (v) => String(v.lang || "").toLowerCase().replace("_", "-");
+  const br = voices.filter((v) => lang(v) === "pt-br");
+  const pool = br.length ? br : voices.filter((v) => lang(v).startsWith("pt"));
+  if (!pool.length) return null;
+  const score = (v) => {
+    const i = BEST_VOICES.findIndex((re) => re.test(v.name));
+    return (i < 0 ? BEST_VOICES.length : i) + (v.localService ? 0.5 : 0);
+  };
+  return pool.slice().sort((a, b) => score(a) - score(b))[0];
+}
+
+if ("speechSynthesis" in window) {
+  chosenVoice = pickVoice();
+  window.speechSynthesis.addEventListener?.("voiceschanged", () => { chosenVoice = pickVoice(); });
+}
+
+// Deixa o texto bom de ouvir: sem emoji nem símbolos, e com abreviações faladas por extenso.
+function speechText(text) {
+  return String(text || "")
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "")
+    .replace(/[*_#`>|]+/g, " ")
+    .replace(/R\$\s?(\d)/g, "$1 reais ")
+    .replace(/\bDr\.\s/g, "doutor ")
+    .replace(/\bDra\.\s/g, "doutora ")
+    .replace(/\bvc\b/gi, "você")
+    .replace(/(\d{1,2})h(\d{2})\b/g, "$1 e $2")
+    .replace(/\b(\d{1,2})h\b/g, (m, h) => (h === "1" ? "1 hora" : `${h} horas`))
+    .replace(/(\d{1,2}):(\d{2})\b/g, (m, h, min) => (min === "00" ? `${h} horas` : `${h} e ${min}`))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// O Chrome corta falas longas no meio; frase por frase a voz vai até o fim e soa mais natural.
+function speechChunks(text) {
+  const sentences = text.match(/[^.!?;]+[.!?;]*/g) || [text];
+  const chunks = [];
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (chunks.length && (chunks[chunks.length - 1] + " " + sentence).length < 140) chunks[chunks.length - 1] += " " + sentence;
+    else chunks.push(sentence);
+  }
+  return chunks;
+}
+
+// Voz do próprio aparelho: reserva quando a voz natural do servidor não está disponível.
+function speakDevice(text, queue = false) {
   if (!("speechSynthesis" in window)) {
     showToast("A leitura em voz alta não está disponível neste navegador.");
     return;
   }
-  if (!queue) window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "pt-BR";
-  utterance.rate = 0.88;
-  window.speechSynthesis.speak(utterance);
+  const clean = speechText(text);
+  if (!clean) return;
+  const synth = window.speechSynthesis;
+  if (!queue) synth.cancel();
+  if (!chosenVoice) chosenVoice = pickVoice();
+  for (const chunk of speechChunks(clean)) {
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    utterance.lang = chosenVoice?.lang || "pt-BR";
+    if (chosenVoice) utterance.voice = chosenVoice;
+    // Vozes naturais já são calmas; as antigas precisam ir um pouco mais devagar para ficar claras.
+    utterance.rate = chosenVoice && /natural|online|neural|google/i.test(chosenVoice.name) ? 0.95 : 0.9;
+    utterance.pitch = 1;
+    synth.speak(utterance);
+  }
+  // Alguns Chrome deixam a fila pausada depois de um cancel(); isto destrava.
+  if (synth.paused) synth.resume();
+}
+
+
+/* Voz natural: o servidor gera a fala com a IA de voz da NVIDIA (Magpie, pt-BR) e o app toca o MP3.
+   O áudio passa pelo Web Audio, liberado no primeiro toque da pessoa (exigência do iPhone e do Chrome).
+   Qualquer falha (sem internet, serviço fora, navegador antigo) cai na voz do aparelho. */
+let audioCtx = null;
+let currentSource = null;
+let speakToken = 0;
+let speechChain = Promise.resolve();
+let naturalVoiceOff = false;
+const voiceCache = new Map();
+
+function unlockAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch { audioCtx = null; }
+}
+document.addEventListener("pointerdown", unlockAudio, { capture: true });
+document.addEventListener("keydown", unlockAudio, { capture: true });
+
+function stopSpeaking() {
+  speakToken += 1;
+  speechChain = Promise.resolve();
+  try { currentSource?.stop(); } catch { /* já parou */ }
+  currentSource = null;
+  try { window.speechSynthesis?.cancel(); } catch { /* sem voz */ }
+}
+
+async function naturalAudio(text) {
+  if (voiceCache.has(text)) return voiceCache.get(text);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 7000);
+  try {
+    const response = await fetch(`${state.apiBase.replace(/\/+$/, "")}/voz`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "audio/mpeg", Authorization: `Bearer ${state.token}` },
+      body: JSON.stringify({ texto: text }),
+      signal: controller.signal,
+    });
+    if (response.status === 204) naturalVoiceOff = true; // servidor sem voz natural: nem tenta de novo
+    if (response.status !== 200) return null;
+    const buffer = await audioCtx.decodeAudioData(await response.arrayBuffer());
+    voiceCache.set(text, buffer);
+    if (voiceCache.size > 40) voiceCache.delete(voiceCache.keys().next().value);
+    return buffer;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function playBuffer(buffer, token) {
+  return new Promise((resolve) => {
+    if (token !== speakToken) return resolve();
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.onended = () => {
+      if (currentSource === source) currentSource = null;
+      resolve();
+    };
+    currentSource = source;
+    source.start();
+  });
+}
+
+function speak(text, queue = false) {
+  const clean = speechText(text);
+  if (!clean) return;
+  if (!state.token || naturalVoiceOff || !audioCtx || audioCtx.state === "closed") {
+    speakDevice(clean, queue);
+    return;
+  }
+  if (!queue) stopSpeaking();
+  const token = speakToken;
+  const pending = naturalAudio(clean); // já começa a baixar enquanto a fala anterior termina
+  speechChain = speechChain.then(async () => {
+    const buffer = await pending;
+    if (token !== speakToken) return;
+    if (!buffer) {
+      speakDevice(clean, true);
+      return;
+    }
+    await playBuffer(buffer, token);
+  });
 }
 
 function speakScreen(queue = false) {
@@ -486,7 +644,7 @@ function closeChat() {
   if (!state.chat.open) return;
   state.chat.open = false;
   state.chat.thinking = false;
-  try { window.speechSynthesis?.cancel(); } catch { /* sem voz */ }
+  stopSpeaking();
   chatChanged();
 }
 
@@ -556,6 +714,7 @@ function renderChat() {
     return `<div class="chat-turn ${t.from}">
         ${t.from === "netinho" ? `<span class="chat-who">${escapeHtml(state.assistantName || "Netinho")}</span>` : ""}
         <p class="chat-bubble">${escapeHtml(t.text)}</p>
+        ${t.from === "netinho" && t === last ? `<button class="chat-repeat" data-action="chat-repeat" data-turn="${index}">${icon("speaker", 2.4)}Ouvir de novo</button>` : ""}
         ${action}
       </div>`;
   }).join("");
@@ -594,6 +753,7 @@ function stopListening() {
 
 function beginListening() {
   if (state.listening) return;
+  stopSpeaking(); // o microfone não pode ouvir o próprio Netinho falando
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
     if (state.screen === "make" || state.screen === "scam") {
@@ -1795,6 +1955,7 @@ async function handleAction(button) {
     case "speak": return speakScreen();
     case "pick-contact": return pickContact(button.dataset.name);
     case "chat-action": return runChatAction(button.dataset.turn);
+    case "chat-repeat": return speak(state.chat.turns[Number(button.dataset.turn)]?.text || "");
     case "close-chat": return closeChat();
     case "confirm-task": return confirmTask();
     case "cancel-task": return cancelTask();

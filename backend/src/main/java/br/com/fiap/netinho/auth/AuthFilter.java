@@ -51,6 +51,7 @@ public class AuthFilter extends OncePerRequestFilter {
             new Rota("POST", Pattern.compile("^/atendimentos$")),
             new Rota("POST", Pattern.compile("^/emergencias$")),
             new Rota("POST", Pattern.compile("^/conversa$")),
+            new Rota("POST", Pattern.compile("^/voz$")),
             new Rota("GET", Pattern.compile("^/lembretes/\\d+$")),
             new Rota("PUT", Pattern.compile("^/lembretes/\\d+$")));
 

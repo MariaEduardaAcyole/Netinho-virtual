@@ -73,9 +73,17 @@ class ConversaBOTest {
         assertEquals("FAZ_PRA_MIM",r.get("acao"));assertEquals(false,r.get("ia"));
         assertEquals("NENHUMA",bo.conversar(1L,"bom dia",List.of()).get("acao"));
     }
-    @Test void respostaForaDoFormatoCaiNoPlanoB(){
+    @Test void respostaSemJsonAproveitaATextoDaIa(){
         when(ia.responder(anyString(),anyList())).thenReturn(Optional.of("Oi, tudo bem?"));
-        assertEquals(false,bo.conversar(1L,"bom dia",List.of()).get("ia"));
+        Map<String,Object> r=bo.conversar(1L,"bom dia",List.of());
+        assertEquals(true,r.get("ia"));assertEquals("Oi, tudo bem?",r.get("resposta"));assertEquals("NENHUMA",r.get("acao"));
+        when(ia.responder(anyString(),anyList())).thenReturn(Optional.of("Pode ser golpe, cuidado."));
+        assertEquals("GOLPE",bo.conversar(1L,"recebi uma mensagem dizendo que ganhei um carro",List.of()).get("acao"));
+    }
+    @Test void historicoDoNetinhoVaiEmJson(){
+        when(ia.responder(anyString(),anyList())).thenReturn(Optional.of("{\"resposta\":\"As 14h.\",\"acao\":\"NENHUMA\"}"));
+        bo.conversar(1L,"e que horas?",List.of(new AssistenteIA.Mensagem("user","minha consulta?"),new AssistenteIA.Mensagem("assistant","Dia 25.")));
+        verify(ia).responder(anyString(),argThat(l->l.size()==3&&l.get(1).texto().startsWith("{\"resposta\":\"Dia 25.\"")));
     }
     @Test void dinheiroERespondidoNaHoraSemIa(){
         Map<String,Object> r=bo.conversar(1L,"faz um pix de 100 reais pro meu filho",List.of());
@@ -85,5 +93,12 @@ class ConversaBOTest {
     }
     @Test void textoVazioERecusado(){
         assertThrows(RegraNegocioException.class,()->bo.conversar(1L,"  ",List.of()));
+    }
+    @Test void falaDaIaNuncaPrometeEnviarNemMostraCodigo(){
+        assertEquals("Eu preparei a mensagem. Toque no botão abaixo para conferir antes de enviar.",
+                ConversaBO.limparFala("Maria, eu mandei o recado para a Beatriz.",ConversaBO.Acao.FAZ_PRA_MIM));
+        assertTrue(ConversaBO.limparFala("Cuidado. Use o comando GOLPE para verificar.",ConversaBO.Acao.GOLPE).startsWith("Cuidado, isso pode ser golpe"));
+        assertEquals("Bom dia, Maria.",ConversaBO.limparFala("Bom dia, **Maria** 😊",ConversaBO.Acao.NENHUMA));
+        assertEquals("Tudo bem por aqui!",ConversaBO.limparFala("Tudo bem por aqui!",ConversaBO.Acao.NENHUMA));
     }
 }
